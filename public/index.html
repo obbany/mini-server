@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Termux CPanel - Web Hosting Control Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Termux CPanel - Mini Server</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -11,671 +12,445 @@
             theme: {
                 extend: {
                     colors: {
-                        slate: {
-                            850: '#1e293b',
-                            950: '#0f172a',
-                        },
-                        indigo: {
-                            400: '#818cf8',
-                            500: '#6366f1',
-                            600: '#4f46e5',
-                        },
-                        violet: {
-                            400: '#a78bfa',
-                            500: '#8b5cf6',
-                        }
-                    },
-                    backdropBlur: {
-                        xs: '2px',
+                        slate: { 850: '#1e293b', 950: '#0f172a' },
+                        indigo: { 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5' },
+                        violet: { 400: '#a78bfa', 500: '#8b5cf6' }
                     }
                 }
             }
         }
     </script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        
-        * {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            background: #0f172a;
-            color: #e2e8f0;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-        
-        .glass {
-            background: rgba(15, 23, 42, 0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(99, 102, 241, 0.15);
-            border-radius: 1rem;
-        }
-        
-        .glass-light {
-            background: rgba(30, 41, 59, 0.6);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border: 1px solid rgba(99, 102, 241, 0.1);
-            border-radius: 0.75rem;
-        }
-        
-        .glass-card {
-            background: rgba(30, 41, 59, 0.4);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(99, 102, 241, 0.08);
-            border-radius: 0.75rem;
-            transition: all 0.3s ease;
-        }
-        
-        .glass-card:hover {
-            border-color: rgba(99, 102, 241, 0.25);
-            background: rgba(30, 41, 59, 0.5);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        }
-        
-        .sidebar-link {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.75rem 1rem;
-            border-radius: 0.75rem;
-            color: #94a3b8;
-            transition: all 0.2s ease;
-            cursor: pointer;
-            text-decoration: none;
-        }
-        
-        .sidebar-link:hover {
-            background: rgba(99, 102, 241, 0.1);
-            color: #e2e8f0;
-        }
-        
-        .sidebar-link.active {
-            background: rgba(99, 102, 241, 0.15);
-            color: #818cf8;
-            border: 1px solid rgba(99, 102, 241, 0.2);
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            color: white;
-            padding: 0.5rem 1.25rem;
-            border-radius: 0.75rem;
-            border: none;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
-        }
-        
-        .btn-secondary {
-            background: rgba(51, 65, 85, 0.6);
-            color: #e2e8f0;
-            padding: 0.5rem 1.25rem;
-            border-radius: 0.75rem;
-            border: 1px solid rgba(71, 85, 105, 0.5);
-            font-weight: 500;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .btn-secondary:hover {
-            background: rgba(51, 65, 85, 0.8);
-            border-color: rgba(99, 102, 241, 0.3);
-        }
-        
-        .btn-danger {
-            background: rgba(239, 68, 68, 0.2);
-            color: #f87171;
-            padding: 0.5rem 1.25rem;
-            border-radius: 0.75rem;
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            font-weight: 500;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .btn-danger:hover {
-            background: rgba(239, 68, 68, 0.3);
-            border-color: rgba(239, 68, 68, 0.4);
-        }
-        
-        .input-glass {
-            background: rgba(15, 23, 42, 0.5);
-            border: 1px solid rgba(71, 85, 105, 0.3);
-            border-radius: 0.75rem;
-            padding: 0.75rem 1rem;
-            color: #e2e8f0;
-            width: 100%;
-            transition: all 0.3s ease;
-            outline: none;
-        }
-        
-        .input-glass:focus {
-            border-color: #818cf8;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-        }
-        
-        .input-glass::placeholder {
-            color: #64748b;
-        }
-        
-        .scrollbar-custom::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        
-        .scrollbar-custom::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        
-        .scrollbar-custom::-webkit-scrollbar-thumb {
-            background: rgba(99, 102, 241, 0.3);
-            border-radius: 10px;
-        }
-        
-        .scrollbar-custom::-webkit-scrollbar-thumb:hover {
-            background: rgba(99, 102, 241, 0.5);
-        }
-        
-        .monaco-container {
-            height: 500px;
-            border-radius: 0.75rem;
-            overflow: hidden;
-            border: 1px solid rgba(71, 85, 105, 0.2);
-        }
-        
-        .status-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-        
-        .status-dot.online {
-            background: #4ade80;
-            box-shadow: 0 0 12px rgba(74, 222, 128, 0.5);
-        }
-        
-        .status-dot.offline {
-            background: #ef4444;
-            box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
-        }
-        
-        .nav-link {
-            color: #94a3b8;
-            transition: color 0.2s;
-            cursor: pointer;
-            text-decoration: none;
-            padding: 0.5rem 0;
-            border-bottom: 2px solid transparent;
-        }
-        
-        .nav-link:hover {
-            color: #e2e8f0;
-        }
-        
-        .nav-link.active {
-            color: #818cf8;
-            border-bottom-color: #818cf8;
-        }
-        
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            padding: 16px 24px;
-            border-radius: 12px;
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            color: #e2e8f0;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            transform: translateY(100px);
-            opacity: 0;
-            transition: all 0.3s ease;
-            max-width: 400px;
-        }
-        
-        .toast.show {
-            transform: translateY(0);
-            opacity: 1;
-        }
-        
-        .toast.success {
-            border-color: rgba(74, 222, 128, 0.3);
-        }
-        
-        .toast.error {
-            border-color: rgba(239, 68, 68, 0.3);
-        }
-        
-        .file-item {
-            padding: 0.5rem 0.75rem;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-        
-        .file-item:hover {
-            background: rgba(51, 65, 85, 0.4);
-        }
-        
-        .file-item.selected {
-            background: rgba(99, 102, 241, 0.15);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-        }
-        
-        @media (max-width: 768px) {
-            .sidebar {
-                position: fixed;
-                left: -280px;
-                top: 0;
-                bottom: 0;
-                width: 280px;
-                background: rgba(15, 23, 42, 0.98);
-                backdrop-filter: blur(20px);
-                border-right: 1px solid rgba(71, 85, 105, 0.2);
-                z-index: 100;
-                transition: left 0.3s ease;
-                padding: 1rem;
-                overflow-y: auto;
-            }
-            
-            .sidebar.open {
-                left: 0;
-            }
-            
-            .sidebar-overlay {
-                position: fixed;
-                inset: 0;
-                background: rgba(0, 0, 0, 0.6);
-                z-index: 99;
-                display: none;
-            }
-            
-            .sidebar-overlay.open {
-                display: block;
-            }
-        }
-    </style>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/responsive.css">
 </head>
 <body>
-    <!-- Toast Container -->
-    <div id="toast-container"></div>
-    
-    <!-- Sidebar Overlay for Mobile -->
-    <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
-    
-    <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar fixed top-0 left-0 h-full w-72 bg-slate-950/95 backdrop-blur-xl border-r border-slate-800/50 z-50 p-6 overflow-y-auto scrollbar-custom">
-        <div class="flex items-center gap-3 mb-8">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold text-lg">
-                <i class="fas fa-server"></i>
-            </div>
-            <div>
-                <h1 class="text-lg font-bold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">Termux CPanel</h1>
-                <p class="text-xs text-slate-400">v1.0.0</p>
-            </div>
+
+<!-- ===== সাইডবার ওভারলে (মোবাইলের জন্য) ===== -->
+<div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- ===== সাইডবার ===== -->
+<aside id="sidebar" class="sidebar">
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">
+            <i class="fas fa-server"></i>
         </div>
-        
-        <nav class="space-y-1">
-            <a class="sidebar-link active" data-page="dashboard" onclick="switchPage('dashboard')">
-                <i class="fas fa-th-large w-5 text-center"></i>
-                <span>Dashboard</span>
-            </a>
-            <a class="sidebar-link" data-page="files" onclick="switchPage('files')">
-                <i class="fas fa-folder-open w-5 text-center"></i>
-                <span>File Manager</span>
-            </a>
-            <a class="sidebar-link" data-page="git" onclick="switchPage('git')">
-                <i class="fab fa-github w-5 text-center"></i>
-                <span>GitHub Deployer</span>
-            </a>
-            <a class="sidebar-link" data-page="tunnel" onclick="switchPage('tunnel')">
-                <i class="fas fa-cloud w-5 text-center"></i>
-                <span>Cloudflare Tunnel</span>
-            </a>
-            <a class="sidebar-link" data-page="sites" onclick="switchPage('sites')">
-                <i class="fas fa-globe w-5 text-center"></i>
-                <span>Hosted Sites</span>
-            </a>
-        </nav>
-        
-        <div class="mt-8 pt-8 border-t border-slate-800/50">
-            <div class="glass-light p-4">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs text-slate-400">System Status</span>
-                    <span class="text-xs text-green-400 flex items-center">
-                        <span class="status-dot online"></span> Online
-                    </span>
-                </div>
-                <div id="sidebar-status" class="space-y-1 text-xs text-slate-400">
-                    <div class="flex justify-between">
-                        <span>CPU</span>
-                        <span id="sidebar-cpu">0%</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>RAM</span>
-                        <span id="sidebar-ram">0%</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Uptime</span>
-                        <span id="sidebar-uptime">0s</span>
-                    </div>
-                </div>
-            </div>
+        <div>
+            <div class="sidebar-logo-text">Termux CPanel</div>
+            <span class="sidebar-logo-version">v2.0.0</span>
         </div>
-    </aside>
-    
-    <!-- Main Content -->
-    <div class="ml-72 min-h-screen transition-all duration-300" id="main-content">
-        <!-- Header -->
-        <header class="glass border-b border-slate-800/50 sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                <button onclick="toggleSidebar()" class="lg:hidden text-slate-400 hover:text-white transition-colors">
-                    <i class="fas fa-bars text-xl"></i>
-                </button>
-                <h2 id="page-title" class="text-xl font-semibold">Dashboard</h2>
-            </div>
-            <div class="flex items-center gap-3">
-                <button onclick="refreshPage()" class="text-slate-400 hover:text-white transition-colors" title="Refresh">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
-                <button onclick="window.location.href='http://localhost:3000'" class="text-slate-400 hover:text-white transition-colors" title="Home">
-                    <i class="fas fa-home"></i>
-                </button>
-            </div>
-        </header>
+        <button onclick="toggleSidebar()" class="sidebar-close-btn hidden-mobile-only">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <nav class="sidebar-nav">
+        <a class="sidebar-link active" data-page="dashboard" onclick="switchPage('dashboard')">
+            <i class="fas fa-th-large"></i>
+            <span>Dashboard</span>
+        </a>
+        <a class="sidebar-link" data-page="files" onclick="switchPage('files')">
+            <i class="fas fa-folder-open"></i>
+            <span>File Manager</span>
+        </a>
+        <a class="sidebar-link" data-page="git" onclick="switchPage('git')">
+            <i class="fab fa-github"></i>
+            <span>GitHub Deployer</span>
+        </a>
+        <a class="sidebar-link" data-page="domains" onclick="switchPage('domains')">
+            <i class="fas fa-globe"></i>
+            <span>Domain Manager</span>
+        </a>
+        <a class="sidebar-link" data-page="tunnel" onclick="switchPage('tunnel')">
+            <i class="fas fa-cloud"></i>
+            <span>Cloudflare Tunnel</span>
+        </a>
+        <a class="sidebar-link" data-page="sites" onclick="switchPage('sites')">
+            <i class="fas fa-server"></i>
+            <span>Hosted Sites</span>
+        </a>
+    </nav>
+
+    <div class="sidebar-status">
+        <div class="sidebar-status-item">
+            <span>CPU</span>
+            <span id="sidebar-cpu">0%</span>
+        </div>
+        <div class="sidebar-status-item">
+            <span>RAM</span>
+            <span id="sidebar-ram">0%</span>
+        </div>
+        <div class="sidebar-status-item">
+            <span>Uptime</span>
+            <span id="sidebar-uptime">0s</span>
+        </div>
+    </div>
+</aside>
+
+<!-- ===== মেইন কন্টেন্ট ===== -->
+<div class="main-content" id="main-content">
+    <!-- হেডার -->
+    <header class="header">
+        <div class="header-left">
+            <button class="header-menu-btn" onclick="toggleSidebar()" aria-label="Toggle menu">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h1 class="header-title" id="page-title">Dashboard</h1>
+        </div>
+        <div class="header-actions">
+            <button class="header-btn" onclick="checkForUpdates()" title="Check Updates">
+                <i class="fas fa-download"></i>
+                <span id="update-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center">1</span>
+            </button>
+            <button class="header-btn" onclick="refreshPage()" title="Refresh">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+            <button class="header-btn" onclick="window.location.href='/'" title="Home">
+                <i class="fas fa-home"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- পেজ কন্টেন্ট -->
+    <main class="page-content">
         
-        <!-- Page Content -->
-        <main class="p-6">
-            <!-- Dashboard -->
-            <div id="page-dashboard" class="page-content">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                    <div class="glass-card p-6">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-slate-400">CPU Usage</span>
-                            <i class="fas fa-microchip text-indigo-400"></i>
-                        </div>
-                        <div class="text-2xl font-bold" id="dashboard-cpu">0%</div>
-                        <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                            <div class="h-full bg-gradient-to-r from-indigo-400 to-violet-400 rounded-full transition-all duration-500" id="dashboard-cpu-bar" style="width: 0%"></div>
-                        </div>
+        <!-- ===== DASHBOARD ===== -->
+        <div id="page-dashboard" class="page-content-inner">
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-label">CPU Usage</span>
+                        <i class="fas fa-microchip stat-card-icon"></i>
                     </div>
-                    
-                    <div class="glass-card p-6">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-slate-400">RAM Usage</span>
-                            <i class="fas fa-memory text-violet-400"></i>
-                        </div>
-                        <div class="text-2xl font-bold" id="dashboard-ram">0%</div>
-                        <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                            <div class="h-full bg-gradient-to-r from-indigo-400 to-violet-400 rounded-full transition-all duration-500" id="dashboard-ram-bar" style="width: 0%"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="glass-card p-6">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-slate-400">Storage</span>
-                            <i class="fas fa-database text-indigo-400"></i>
-                        </div>
-                        <div class="text-2xl font-bold" id="dashboard-storage">0%</div>
-                        <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                            <div class="h-full bg-gradient-to-r from-indigo-400 to-violet-400 rounded-full transition-all duration-500" id="dashboard-storage-bar" style="width: 0%"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="glass-card p-6">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm text-slate-400">Uptime</span>
-                            <i class="fas fa-clock text-violet-400"></i>
-                        </div>
-                        <div class="text-2xl font-bold" id="dashboard-uptime">0s</div>
-                        <div class="text-xs text-slate-500 mt-1" id="dashboard-node-uptime">Node: 0s</div>
+                    <div class="stat-card-value" id="dashboard-cpu">0%</div>
+                    <div class="stat-card-bar">
+                        <div class="stat-card-bar-fill" id="dashboard-cpu-bar" style="width:0%"></div>
                     </div>
                 </div>
                 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="glass-card p-6">
-                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <i class="fas fa-rocket text-indigo-400"></i>
-                            Quick Actions
-                        </h3>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button onclick="switchPage('sites')" class="glass-light p-4 text-center hover:border-indigo-500/30 transition-all">
-                                <i class="fas fa-plus-circle text-2xl text-indigo-400 block mb-2"></i>
-                                <span class="text-sm">Create Site</span>
-                            </button>
-                            <button onclick="switchPage('files')" class="glass-light p-4 text-center hover:border-indigo-500/30 transition-all">
-                                <i class="fas fa-upload text-2xl text-violet-400 block mb-2"></i>
-                                <span class="text-sm">Upload Files</span>
-                            </button>
-                            <button onclick="switchPage('git')" class="glass-light p-4 text-center hover:border-indigo-500/30 transition-all">
-                                <i class="fab fa-github text-2xl text-indigo-400 block mb-2"></i>
-                                <span class="text-sm">Deploy from GitHub</span>
-                            </button>
-                            <button onclick="switchPage('tunnel')" class="glass-light p-4 text-center hover:border-indigo-500/30 transition-all">
-                                <i class="fas fa-cloud-upload-alt text-2xl text-violet-400 block mb-2"></i>
-                                <span class="text-sm">Setup Tunnel</span>
-                            </button>
-                        </div>
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-label">RAM Usage</span>
+                        <i class="fas fa-memory stat-card-icon"></i>
                     </div>
-                    
-                    <div class="glass-card p-6">
-                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <i class="fas fa-globe text-indigo-400"></i>
-                            Hosted Sites
-                        </h3>
-                        <div id="dashboard-sites-list" class="space-y-2 max-h-60 overflow-y-auto scrollbar-custom">
-                            <p class="text-sm text-slate-400">Loading sites...</p>
-                        </div>
+                    <div class="stat-card-value" id="dashboard-ram">0%</div>
+                    <div class="stat-card-bar">
+                        <div class="stat-card-bar-fill" id="dashboard-ram-bar" style="width:0%"></div>
                     </div>
-                </div>
-            </div>
-            
-            <!-- File Manager -->
-            <div id="page-files" class="page-content hidden">
-                <div class="glass p-6">
-                    <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <button onclick="fileManager.createFolder()" class="btn-secondary text-sm flex items-center gap-1">
-                                <i class="fas fa-folder-plus"></i> New Folder
-                            </button>
-                            <button onclick="fileManager.createFile()" class="btn-secondary text-sm flex items-center gap-1">
-                                <i class="fas fa-file-plus"></i> New File
-                            </button>
-                            <button onclick="document.getElementById('file-upload-input').click()" class="btn-secondary text-sm flex items-center gap-1">
-                                <i class="fas fa-upload"></i> Upload
-                            </button>
-                            <button onclick="fileManager.refresh()" class="btn-secondary text-sm flex items-center gap-1">
-                                <i class="fas fa-sync-alt"></i> Refresh
-                            </button>
-                        </div>
-                        <div class="text-sm text-slate-400">
-                            <span id="file-count">0 items</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Breadcrumb -->
-                    <div id="breadcrumb" class="flex items-center gap-2 mb-4 text-sm overflow-x-auto scrollbar-custom p-2 glass-light rounded-lg">
-                        <span class="text-slate-400">/</span>
-                    </div>
-                    
-                    <!-- File List -->
-                    <div id="file-list" class="space-y-1 max-h-96 overflow-y-auto scrollbar-custom">
-                        <p class="text-sm text-slate-400">Loading files...</p>
-                    </div>
-                    
-                    <!-- Hidden File Input -->
-                    <input type="file" id="file-upload-input" multiple class="hidden" onchange="fileManager.handleUpload(event)">
                 </div>
                 
-                <!-- Monaco Editor -->
-                <div class="glass p-6 mt-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold flex items-center gap-2">
-                            <i class="fas fa-code text-indigo-400"></i>
-                            Code Editor
-                        </h3>
-                        <div class="flex items-center gap-2">
-                            <span id="editor-file-path" class="text-sm text-slate-400">No file selected</span>
-                            <button onclick="fileManager.saveFile()" class="btn-primary text-sm flex items-center gap-1">
-                                <i class="fas fa-save"></i> Save
-                            </button>
-                        </div>
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-label">Storage</span>
+                        <i class="fas fa-database stat-card-icon"></i>
                     </div>
-                    <div id="monaco-container" class="monaco-container"></div>
+                    <div class="stat-card-value" id="dashboard-storage">0%</div>
+                    <div class="stat-card-bar">
+                        <div class="stat-card-bar-fill" id="dashboard-storage-bar" style="width:0%"></div>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <span class="stat-card-label">Uptime</span>
+                        <i class="fas fa-clock stat-card-icon"></i>
+                    </div>
+                    <div class="stat-card-value" id="dashboard-uptime">0s</div>
+                    <div class="stat-card-bar">
+                        <div class="stat-card-bar-fill" style="width:100%; background: linear-gradient(90deg, #4ade80, #22d3ee);"></div>
+                    </div>
                 </div>
             </div>
-            
-            <!-- GitHub Deployer -->
-            <div id="page-git" class="page-content hidden">
-                <div class="glass p-6">
-                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-                        <i class="fab fa-github text-indigo-400"></i>
-                        Deploy from GitHub
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="site-card">
+                    <h3 class="font-semibold mb-3 flex items-center gap-2">
+                        <i class="fas fa-rocket text-indigo-400"></i>
+                        Quick Actions
                     </h3>
-                    <form id="github-form" onsubmit="gitDeploy.deploy(event)" class="space-y-4">
-                        <div>
-                            <label class="block text-sm text-slate-400 mb-1">Repository URL</label>
-                            <input type="url" id="git-url" class="input-glass" placeholder="https://github.com/username/repo.git" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm text-slate-400 mb-1">Branch</label>
-                            <input type="text" id="git-branch" class="input-glass" placeholder="main" value="main">
-                        </div>
-                        <div>
-                            <label class="block text-sm text-slate-400 mb-1">Site Name (optional)</label>
-                            <input type="text" id="git-site-name" class="input-glass" placeholder="my-site">
-                        </div>
-                        <div>
-                            <label class="block text-sm text-slate-400 mb-1">Personal Access Token (for private repos)</label>
-                            <input type="password" id="git-token" class="input-glass" placeholder="ghp_xxxxxxxxxxxx">
-                        </div>
-                        <div class="flex gap-3">
-                            <button type="submit" class="btn-primary flex items-center gap-2">
-                                <i class="fas fa-download"></i> Deploy
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="switchPage('sites')" class="btn-secondary text-sm p-3 rounded-lg text-center">
+                            <i class="fas fa-plus-circle text-xl text-indigo-400 block mb-1"></i>
+                            Create Site
+                        </button>
+                        <button onclick="switchPage('files')" class="btn-secondary text-sm p-3 rounded-lg text-center">
+                            <i class="fas fa-upload text-xl text-violet-400 block mb-1"></i>
+                            Upload
+                        </button>
+                        <button onclick="switchPage('git')" class="btn-secondary text-sm p-3 rounded-lg text-center">
+                            <i class="fab fa-github text-xl text-indigo-400 block mb-1"></i>
+                            Deploy
+                        </button>
+                        <button onclick="switchPage('domains')" class="btn-secondary text-sm p-3 rounded-lg text-center">
+                            <i class="fas fa-globe text-xl text-violet-400 block mb-1"></i>
+                            Domains
+                        </button>
+                    </div>
+                </div>
+
+                <div class="site-card">
+                    <h3 class="font-semibold mb-3 flex items-center gap-2">
+                        <i class="fas fa-globe text-indigo-400"></i>
+                        Hosted Sites
+                    </h3>
+                    <div id="dashboard-sites-list" class="space-y-2 max-h-60 overflow-y-auto">
+                        <p class="text-sm text-slate-400">No sites hosted yet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== FILE MANAGER ===== -->
+        <div id="page-files" class="page-content-inner hidden">
+            <div class="site-card p-4">
+                <div class="file-manager-toolbar">
+                    <button class="btn-secondary" onclick="fileManager.createFolder()">
+                        <i class="fas fa-folder-plus"></i>
+                        <span class="hidden-mobile">New Folder</span>
+                    </button>
+                    <button class="btn-secondary" onclick="fileManager.createFile()">
+                        <i class="fas fa-file-plus"></i>
+                        <span class="hidden-mobile">New File</span>
+                    </button>
+                    <button class="btn-secondary" onclick="document.getElementById('file-upload-input').click()">
+                        <i class="fas fa-upload"></i>
+                        <span class="hidden-mobile">Upload</span>
+                    </button>
+                    <button class="btn-secondary" onclick="fileManager.refresh()">
+                        <i class="fas fa-sync-alt"></i>
+                        <span class="hidden-mobile">Refresh</span>
+                    </button>
+                </div>
+
+                <div id="breadcrumb" class="breadcrumb text-sm text-slate-400 p-2 rounded-lg bg-slate-800/30 mb-3">
+                    <span>/</span>
+                </div>
+
+                <div id="file-list" class="file-list">
+                    <p class="text-sm text-slate-400">Loading files...</p>
+                </div>
+
+                <input type="file" id="file-upload-input" multiple class="hidden" onchange="fileManager.handleUpload(event)">
+            </div>
+
+            <div class="site-card p-4 mt-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="font-semibold flex items-center gap-2">
+                        <i class="fas fa-code text-indigo-400"></i>
+                        Code Editor
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <span id="editor-file-path" class="text-sm text-slate-400 hidden-mobile">No file selected</span>
+                        <button onclick="fileManager.saveFile()" class="btn-primary text-sm">
+                            <i class="fas fa-save"></i> <span class="hidden-mobile">Save</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="monaco-container" class="monaco-container"></div>
+            </div>
+        </div>
+
+        <!-- ===== GITHUB DEPLOYER ===== -->
+        <div id="page-git" class="page-content-inner hidden">
+            <div class="site-card p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <i class="fab fa-github text-indigo-400"></i>
+                    Deploy from GitHub
+                </h3>
+                <form id="github-form" onsubmit="gitDeploy.deploy(event)" class="space-y-3">
+                    <div class="form-group">
+                        <label class="form-label">Repository URL</label>
+                        <input type="url" id="git-url" class="form-input" placeholder="https://github.com/username/repo.git" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Branch</label>
+                        <input type="text" id="git-branch" class="form-input" placeholder="main" value="main">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Site Name (optional)</label>
+                        <input type="text" id="git-site-name" class="form-input" placeholder="my-site">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Access Token (for private repos)</label>
+                        <input type="password" id="git-token" class="form-input" placeholder="ghp_xxxxxxxxxxxx">
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-download"></i> Deploy
+                        </button>
+                        <button type="button" onclick="gitDeploy.loadInfo()" class="btn-secondary">
+                            <i class="fas fa-info-circle"></i> Get Info
+                        </button>
+                    </div>
+                </form>
+
+                <div id="git-status" class="mt-4 p-3 rounded-lg bg-slate-800/30 hidden">
+                    <div id="git-status-content"></div>
+                </div>
+            </div>
+
+            <div class="site-card p-4 mt-4">
+                <h4 class="font-semibold mb-3 flex items-center gap-2">
+                    <i class="fas fa-list text-indigo-400"></i>
+                    Deployed Sites
+                </h4>
+                <div id="deployed-sites" class="space-y-2">
+                    <p class="text-sm text-slate-400">No sites deployed yet</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== DOMAIN MANAGER (নতুন) ===== -->
+        <div id="page-domains" class="page-content-inner hidden">
+            <div class="site-card p-4">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <i class="fas fa-globe text-indigo-400"></i>
+                    Domain Manager
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- ডোমেইন যোগ করুন -->
+                    <div>
+                        <h4 class="text-sm font-medium mb-2 text-slate-300">Add Custom Domain</h4>
+                        <form id="domain-form" onsubmit="domainManager.addDomain(event)" class="space-y-3">
+                            <div class="form-group">
+                                <label class="form-label">Domain Name</label>
+                                <input type="text" id="domain-name" class="form-input" placeholder="example.com" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Site Name</label>
+                                <select id="domain-site" class="form-input">
+                                    <option value="">Select a site...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tunnel Name</label>
+                                <input type="text" id="domain-tunnel" class="form-input" placeholder="my-tunnel">
+                            </div>
+                            <button type="submit" class="btn-primary w-full">
+                                <i class="fas fa-plus"></i> Add Domain
                             </button>
-                            <button type="button" onclick="gitDeploy.loadInfo()" class="btn-secondary flex items-center gap-2">
-                                <i class="fas fa-info-circle"></i> Get Info
+                        </form>
+                    </div>
+                    
+                    <!-- ডোমেইন লিস্ট -->
+                    <div>
+                        <h4 class="text-sm font-medium mb-2 text-slate-300">Your Domains</h4>
+                        <div id="domain-list" class="space-y-2 max-h-80 overflow-y-auto">
+                            <p class="text-sm text-slate-400">No domains added yet</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== CLOUDFLARE TUNNEL ===== -->
+        <div id="page-tunnel" class="page-content-inner hidden">
+            <div class="tunnel-grid">
+                <div class="tunnel-card">
+                    <h4 class="tunnel-card-title">Quick Tunnel</h4>
+                    <p class="tunnel-card-desc">Get a temporary *.trycloudflare.com URL instantly</p>
+                    <div class="tunnel-controls">
+                        <button onclick="tunnelManager.startQuick()" class="btn-primary">
+                            <i class="fas fa-play"></i> Start
+                        </button>
+                        <button onclick="tunnelManager.stop('quick')" class="btn-danger">
+                            <i class="fas fa-stop"></i> Stop
+                        </button>
+                    </div>
+                    <div id="quick-tunnel-status" class="tunnel-status">
+                        <span class="text-slate-400">Status: Not running</span>
+                    </div>
+                </div>
+
+                <div class="tunnel-card">
+                    <h4 class="tunnel-card-title">Named Tunnel</h4>
+                    <p class="tunnel-card-desc">Persistent tunnel with custom domain</p>
+                    <form id="named-tunnel-form" onsubmit="tunnelManager.startNamed(event)" class="space-y-3">
+                        <input type="text" id="tunnel-name" class="form-input" placeholder="Tunnel Name" required>
+                        <input type="text" id="tunnel-domain" class="form-input" placeholder="Custom Domain (app.example.com)">
+                        <div class="tunnel-controls">
+                            <button type="submit" class="btn-primary">
+                                <i class="fas fa-play"></i> Start
+                            </button>
+                            <button type="button" onclick="tunnelManager.createNamed()" class="btn-secondary">
+                                <i class="fas fa-plus"></i> Create
+                            </button>
+                            <button type="button" onclick="tunnelManager.routeDNS()" class="btn-secondary">
+                                <i class="fas fa-dns"></i> DNS
                             </button>
                         </div>
                     </form>
-                    
-                    <div id="git-status" class="mt-4 p-4 glass-light rounded-lg hidden">
-                        <div id="git-status-content"></div>
-                    </div>
-                </div>
-                
-                <div class="glass p-6 mt-6">
-                    <h4 class="text-md font-semibold mb-3 flex items-center gap-2">
-                        <i class="fas fa-list text-indigo-400"></i>
-                        Deployed Sites
-                    </h4>
-                    <div id="deployed-sites" class="space-y-2">
-                        <p class="text-sm text-slate-400">No sites deployed yet</p>
+                    <div id="named-tunnel-status" class="tunnel-status">
+                        <span class="text-slate-400">Status: Not running</span>
                     </div>
                 </div>
             </div>
-            
-            <!-- Cloudflare Tunnel -->
-            <div id="page-tunnel" class="page-content hidden">
-                <div class="glass p-6">
-                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-                        <i class="fas fa-cloud text-indigo-400"></i>
-                        Cloudflare Tunnel
-                    </h3>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div>
-                            <h4 class="text-md font-medium mb-3">Quick Tunnel</h4>
-                            <p class="text-sm text-slate-400 mb-3">Get a temporary *.trycloudflare.com URL instantly</p>
-                            <div class="flex gap-3">
-                                <button onclick="tunnelManager.startQuick()" class="btn-primary flex items-center gap-2">
-                                    <i class="fas fa-play"></i> Start Quick Tunnel
-                                </button>
-                                <button onclick="tunnelManager.stop('quick')" class="btn-danger flex items-center gap-2">
-                                    <i class="fas fa-stop"></i> Stop
-                                </button>
-                            </div>
-                            <div id="quick-tunnel-status" class="mt-3 text-sm">
-                                <span class="text-slate-400">Status: Not running</span>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <h4 class="text-md font-medium mb-3">Named Tunnel</h4>
-                            <p class="text-sm text-slate-400 mb-3">Persistent tunnel with custom domain</p>
-                            <form id="named-tunnel-form" onsubmit="tunnelManager.startNamed(event)" class="space-y-3">
-                                <input type="text" id="tunnel-name" class="input-glass" placeholder="Tunnel Name" required>
-                                <input type="text" id="tunnel-domain" class="input-glass" placeholder="Custom Domain (e.g., app.example.com)">
-                                <div class="flex gap-3">
-                                    <button type="submit" class="btn-primary flex items-center gap-2">
-                                        <i class="fas fa-play"></i> Start Named
-                                    </button>
-                                    <button type="button" onclick="tunnelManager.createNamed()" class="btn-secondary flex items-center gap-2">
-                                        <i class="fas fa-plus"></i> Create
-                                    </button>
-                                    <button type="button" onclick="tunnelManager.routeDNS()" class="btn-secondary flex items-center gap-2">
-                                        <i class="fas fa-dns"></i> Route DNS
-                                    </button>
-                                </div>
-                            </form>
-                            <div id="named-tunnel-status" class="mt-3 text-sm">
-                                <span class="text-slate-400">Status: Not running</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        </div>
+
+        <!-- ===== HOSTED SITES ===== -->
+        <div id="page-sites" class="page-content-inner hidden">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h3 class="font-semibold flex items-center gap-2">
+                    <i class="fas fa-server text-indigo-400"></i>
+                    Hosted Sites
+                </h3>
+                <button onclick="siteManager.createSite()" class="btn-primary">
+                    <i class="fas fa-plus"></i> Create Site
+                </button>
             </div>
-            
-            <!-- Hosted Sites -->
-            <div id="page-sites" class="page-content hidden">
-                <div class="glass p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold flex items-center gap-2">
-                            <i class="fas fa-globe text-indigo-400"></i>
-                            Hosted Sites
-                        </h3>
-                        <button onclick="siteManager.createSite()" class="btn-primary flex items-center gap-2">
-                            <i class="fas fa-plus"></i> Create Site
-                        </button>
-                    </div>
-                    
-                    <div id="sites-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <p class="text-sm text-slate-400 col-span-full">Loading sites...</p>
-                    </div>
-                </div>
+
+            <div id="sites-list" class="sites-grid">
+                <p class="text-sm text-slate-400 col-span-full">Loading sites...</p>
             </div>
-        </main>
+        </div>
+
+    </main>
+</div>
+
+<!-- ===== টোস্ট কন্টেইনার ===== -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- ===== আপডেট মোডাল ===== -->
+<div id="update-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900/95 backdrop-blur-xl rounded-2xl p-6 max-w-lg w-full border border-indigo-500/20 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold flex items-center gap-2">
+                <i class="fas fa-sync-alt text-indigo-400 animate-spin"></i>
+                Update Available!
+            </h3>
+            <button onclick="closeUpdateModal()" class="text-slate-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="space-y-3">
+            <div class="flex justify-between p-3 bg-slate-800/50 rounded-lg">
+                <span class="text-slate-400">Current Version</span>
+                <span class="font-mono" id="current-version">v1.0.0</span>
+            </div>
+            <div class="flex justify-between p-3 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
+                <span class="text-indigo-400">Latest Version</span>
+                <span class="font-mono text-indigo-400" id="latest-version">v1.1.0</span>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="installUpdate()" class="btn-primary flex-1 flex items-center justify-center gap-2">
+                    <i class="fas fa-download"></i> Update Now
+                </button>
+                <button onclick="closeUpdateModal()" class="btn-secondary">Later</button>
+            </div>
+            <div id="update-progress" class="hidden">
+                <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div id="update-progress-bar" class="h-full bg-gradient-to-r from-indigo-400 to-violet-400 transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <p id="update-status" class="text-sm text-slate-400 mt-1">Preparing update...</p>
+            </div>
+        </div>
     </div>
-    
-    <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/loader.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/editor/editor.main.nls.js"></script>
-    <script>
-        // Load all JavaScript files
-    </script>
-    <script src="/js/app.js"></script>
-    <script src="/js/editor.js"></script>
+</div>
+
+<!-- ===== স্ক্রিপ্ট ===== -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/loader.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/editor.js"></script>
 </body>
 </html>

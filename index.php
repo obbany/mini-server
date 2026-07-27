@@ -1,23 +1,29 @@
 <?php
-// ==================== পাবলিক মিনি সার্ভার v2.0 ====================
+/**
+ * মিনি সার্ভার - পাবলিক ফাইল ম্যানেজার
+ * GitHub: https://github.com/obbany/mini-server
+ * Version: 2.0
+ */
+
+// ==================== কনফিগারেশন ====================
 error_reporting(0);
 ini_set('display_errors', 0);
 
-// বেসিক কনফিগারেশন
 $baseDir = __DIR__ . '/public_files';
-$adminPassword = 'admin123'; // চেঞ্জ করুন
-$sessionLifetime = 3600; // 1 ঘন্টা
+$adminPassword = 'admin123'; // আপনার পছন্দমত পাসওয়ার্ড দিন
+$siteName = 'মিনি সার্ভার - ফাইল ম্যানেজার';
+$siteDescription = 'আপনার ফ্রেন্ড সার্কেলের জন্য পাবলিক ফাইল শেয়ারিং প্লাটফর্ম';
 
 // ফোল্ডার তৈরি
 if (!is_dir($baseDir)) {
     mkdir($baseDir, 0755, true);
-    file_put_contents($baseDir . '/index.html', '');
+    file_put_contents($baseDir . '/index.html', '<html><body><h1>403 Forbidden</h1></body></html>');
 }
 
 // সেশন স্টার্ট
 session_start();
 
-// বর্তমান ডিরেক্টরি
+// বর্তমান ডিরেক্টরি নির্ধারণ
 $currentDir = '';
 if (isset($_GET['dir'])) {
     $requestedDir = str_replace(['..', './', '\\'], '', $_GET['dir']);
@@ -30,20 +36,29 @@ if (isset($_GET['dir'])) {
 }
 $targetDir = $baseDir . ($currentDir ? '/' . $currentDir : '');
 
-// লগইন চেক
+// লগইন সিস্টেম
 $isLoggedIn = isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true;
 if (isset($_POST['password']) && $_POST['password'] === $adminPassword) {
     $_SESSION['logged_in'] = true;
     $isLoggedIn = true;
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
 }
 
-// অ্যাকশন হ্যান্ডলিং
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
+}
+
+// ==================== অ্যাকশন হ্যান্ডলিং ====================
 $message = '';
 $messageType = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
     $action = $_POST['action'] ?? '';
     
+    // ফাইল আপলোড
     if ($action === 'upload' && !empty($_FILES['files']['name'][0])) {
         $uploaded = 0;
         foreach ($_FILES['files']['tmp_name'] as $key => $tmpName) {
@@ -52,7 +67,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
             $fileName = preg_replace('/[^a-zA-Z0-9._\-\s]/', '', $_FILES['files']['name'][$key]);
             $targetPath = $targetDir . '/' . $fileName;
             
-            // ডুপ্লিকেট চেক
             $counter = 1;
             $originalName = pathinfo($fileName, PATHINFO_FILENAME);
             $extension = pathinfo($fileName, PATHINFO_EXTENSION);
@@ -65,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
             if (move_uploaded_file($tmpName, $targetPath)) {
                 $uploaded++;
                 
-                // জিপ এক্সট্র্যাক্ট
+                // জিপ ফাইল অটো-এক্সট্র্যাক্ট
                 if (strtolower($extension) === 'zip' && class_exists('ZipArchive')) {
                     $zip = new ZipArchive();
                     if ($zip->open($targetPath) === true) {
@@ -79,21 +93,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
             }
         }
         if ($uploaded > 0) {
-            $message = "✅ {$uploaded} ফাইল আপলোড সফল!";
+            $message = "✅ {$uploaded}টি ফাইল সফলভাবে আপলোড হয়েছে!";
             $messageType = 'success';
         }
     }
     
+    // ফাইল/ফোল্ডার ডিলিট
     if ($action === 'delete' && isset($_POST['file'])) {
         $file = $_POST['file'];
         $filePath = $targetDir . '/' . basename($file);
         if (file_exists($filePath)) {
-            is_dir($filePath) ? rrmdir($filePath) : unlink($filePath);
-            $message = "✅ ডিলিট সফল!";
+            if (is_dir($filePath)) {
+                rrmdir($filePath);
+            } else {
+                unlink($filePath);
+            }
+            $message = "✅ সফলভাবে ডিলিট করা হয়েছে!";
             $messageType = 'success';
         }
     }
     
+    // রিনেম
     if ($action === 'rename' && isset($_POST['oldname']) && isset($_POST['newname'])) {
         $oldName = $_POST['oldname'];
         $newName = preg_replace('/[^a-zA-Z0-9._\-\s]/', '', $_POST['newname']);
@@ -101,33 +121,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isLoggedIn) {
         $newPath = $targetDir . '/' . $newName;
         
         if (file_exists($oldPath) && !file_exists($newPath) && rename($oldPath, $newPath)) {
-            $message = "✅ রিনেম সফল!";
+            $message = "✅ '{$oldName}' → '{$newName}' রিনেম করা হয়েছে!";
             $messageType = 'success';
+        } else {
+            $message = "❌ রিনেম করা সম্ভব হয়নি!";
+            $messageType = 'error';
         }
     }
     
+    // নতুন ফাইল/ফোল্ডার তৈরি
     if ($action === 'create' && isset($_POST['name'])) {
         $name = preg_replace('/[^a-zA-Z0-9._\-\s]/', '', $_POST['name']);
         $type = $_POST['type'] ?? 'file';
         $newPath = $targetDir . '/' . $name;
         
         if (!file_exists($newPath)) {
-            $type === 'folder' ? mkdir($newPath, 0755, true) : file_put_contents($newPath, '');
-            $message = "✅ তৈরি সফল!";
+            if ($type === 'folder') {
+                mkdir($newPath, 0755, true);
+            } else {
+                file_put_contents($newPath, '');
+            }
+            $message = "✅ '{$name}' তৈরি করা হয়েছে!";
             $messageType = 'success';
+        } else {
+            $message = "❌ এই নামটি ইতিমধ্যে ব্যবহার করা হয়েছে!";
+            $messageType = 'error';
         }
     }
     
+    // ফাইল এডিট/সেভ
     if ($action === 'save' && isset($_POST['file']) && isset($_POST['content'])) {
         $filePath = $targetDir . '/' . basename($_POST['file']);
         if (file_exists($filePath) && file_put_contents($filePath, $_POST['content'])) {
-            $message = "✅ সেভ সফল!";
+            $message = "✅ ফাইল সফলভাবে সংরক্ষিত হয়েছে!";
             $messageType = 'success';
         }
     }
 }
 
-// ফাইল লিস্টিং
+// ==================== ফাইল লিস্টিং ====================
 $items = [];
 if (is_dir($targetDir)) {
     $scanned = scandir($targetDir);
@@ -140,29 +172,37 @@ if (is_dir($targetDir)) {
             'is_dir' => $isDir,
             'size' => $isDir ? 0 : filesize($itemPath),
             'modified' => filemtime($itemPath),
-            'type' => $isDir ? 'folder' : strtolower(pathinfo($item, PATHINFO_EXTENSION))
+            'type' => $isDir ? 'folder' : strtolower(pathinfo($item, PATHINFO_EXTENSION)),
+            'permissions' => substr(sprintf('%o', fileperms($itemPath)), -4)
         ];
     }
     
+    // সর্টিং: ফোল্ডার আগে, তারপর নাম অনুযায়ী
     usort($items, function($a, $b) {
-        if ($a['is_dir'] !== $b['is_dir']) return $b['is_dir'] - $a['is_dir'];
+        if ($a['is_dir'] !== $b['is_dir']) {
+            return $b['is_dir'] - $a['is_dir'];
+        }
         return strcasecmp($a['name'], $b['name']);
     });
 }
 
-// AJAX হ্যান্ডলিং
+// AJAX রিকুয়েস্ট হ্যান্ডলিং
 if (isset($_GET['action']) && $_GET['action'] === 'read' && isset($_GET['file'])) {
     header('Content-Type: application/json');
     $filePath = $targetDir . '/' . basename($_GET['file']);
     if (file_exists($filePath) && is_file($filePath)) {
-        echo json_encode(['success' => true, 'content' => file_get_contents($filePath)]);
+        echo json_encode([
+            'success' => true,
+            'content' => file_get_contents($filePath),
+            'size' => filesize($filePath)
+        ]);
     } else {
-        echo json_encode(['success' => false]);
+        echo json_encode(['success' => false, 'message' => 'ফাইল পাওয়া যায়নি']);
     }
     exit;
 }
 
-// ইউটিলিটি ফাংশন
+// ==================== ইউটিলিটি ফাংশন ====================
 function rrmdir($dir) {
     $files = array_diff(scandir($dir), ['.', '..']);
     foreach ($files as $file) {
@@ -174,526 +214,697 @@ function rrmdir($dir) {
 
 function humanFileSize($bytes) {
     if ($bytes == 0) return '0 B';
-    $units = ['B', 'KB', 'MB', 'GB'];
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
     $i = floor(log($bytes, 1024));
     return round($bytes / pow(1024, $i), 1) . ' ' . $units[$i];
 }
+
+function getFileIcon($type) {
+    $icons = [
+        'php' => 'fa-php',
+        'html' => 'fa-html5',
+        'css' => 'fa-css3-alt',
+        'js' => 'fa-js-square',
+        'jpg' => 'fa-file-image',
+        'jpeg' => 'fa-file-image',
+        'png' => 'fa-file-image',
+        'gif' => 'fa-file-image',
+        'svg' => 'fa-file-image',
+        'pdf' => 'fa-file-pdf',
+        'zip' => 'fa-file-archive',
+        'rar' => 'fa-file-archive',
+        'tar' => 'fa-file-archive',
+        'gz' => 'fa-file-archive',
+        'mp4' => 'fa-file-video',
+        'mp3' => 'fa-file-audio',
+        'txt' => 'fa-file-alt',
+        'md' => 'fa-file-alt',
+        'json' => 'fa-file-code',
+        'xml' => 'fa-file-code',
+    ];
+    return $icons[$type] ?? 'fa-file';
+}
+
+function getCurrentUrl() {
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+    return $protocol . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+}
 ?>
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="bn" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚀 পাবলিক মিনি সার্ভার - ফ্রেন্ড সার্কেল</title>
+    <title><?= $siteName ?></title>
+    <meta name="description" content="<?= $siteDescription ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         :root {
-            --bg: #0f172a;
-            --card: #1e293b;
-            --text: #e2e8f0;
-            --muted: #94a3b8;
-            --accent: #8b5cf6;
-            --accent2: #ec4899;
+            --bg-primary: #0a0e27;
+            --bg-secondary: #131838;
+            --bg-card: #1a1f4e;
+            --text-primary: #e8eaed;
+            --text-secondary: #9aa0a6;
+            --accent-1: #8b5cf6;
+            --accent-2: #ec4899;
             --success: #10b981;
-            --danger: #ef4444;
             --warning: #f59e0b;
-            --border: #334155;
-            --glass: rgba(255,255,255,0.05);
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --border: #2d3561;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
         }
-        
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
-            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #1a1040 50%, var(--bg-primary) 100%);
+            color: var(--text-primary);
             min-height: 100vh;
+            line-height: 1.6;
         }
-        
-        .container {
-            max-width: 1100px;
+
+        /* অ্যানিমেটেড ব্যাকগ্রাউন্ড */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 50% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .app-container {
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            position: relative;
+            z-index: 1;
         }
-        
-        /* গ্লাসমর্ফিজম হেডার */
-        .header {
-            background: var(--glass);
+
+        /* গ্লাসমর্ফিজম কার্ড */
+        .glass-card {
+            background: var(--glass-bg);
             backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
+            border: 1px solid var(--glass-border);
             border-radius: 24px;
-            padding: 30px;
-            margin-bottom: 25px;
-            position: relative;
-            overflow: hidden;
+            padding: 24px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
         }
-        
-        .header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: conic-gradient(from 0deg, transparent, rgba(139, 92, 246, 0.1), transparent, rgba(236, 72, 153, 0.1), transparent);
-            animation: rotate 20s linear infinite;
+
+        .glass-card:hover {
+            border-color: var(--accent-1);
+            box-shadow: 0 8px 32px rgba(139, 92, 246, 0.2);
         }
-        
-        @keyframes rotate {
-            100% { transform: rotate(360deg); }
-        }
-        
-        .header-content {
-            position: relative;
+
+        /* হেডার */
+        .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 20px;
         }
-        
-        .logo {
-            font-size: 32px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #8b5cf6, #ec4899);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+
+        .logo-section {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 15px;
         }
-        
+
         .logo-icon {
-            font-size: 40px;
-            filter: drop-shadow(0 0 20px rgba(139, 92, 246, 0.5));
-        }
-        
-        .status-badges {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .badge {
-            background: var(--glass);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border);
-            padding: 8px 16px;
-            border-radius: 50px;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .badge.online { border-color: var(--success); color: var(--success); }
-        .badge.public { border-color: var(--accent); color: var(--accent2); }
-        
-        /* ফ্লোটিং অ্যাকশন বার */
-        .fab-container {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        
-        .fab {
             width: 60px;
             height: 60px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
             color: white;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            box-shadow: 0 10px 30px rgba(139, 92, 246, 0.4);
-            transition: all 0.3s;
+            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .logo-text h1 {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-text p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* স্ট্যাটাস ব্যাজ */
+        .status-badges {
             display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .fab:hover {
-            transform: translateY(-5px) scale(1.05);
-            box-shadow: 0 15px 40px rgba(139, 92, 246, 0.6);
-        }
-        
-        .fab-menu {
-            display: none;
-            flex-direction: column;
             gap: 10px;
+            flex-wrap: wrap;
         }
-        
-        .fab-menu.show {
-            display: flex;
-        }
-        
-        .fab-item {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: var(--card);
-            border: 1px solid var(--border);
-            color: var(--text);
-            font-size: 18px;
-            cursor: pointer;
-            transition: all 0.3s;
+
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 12px;
+            font-weight: 600;
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 6px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
         }
-        
+
+        .status-badge.online { 
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .status-badge.files { 
+            border-color: var(--info);
+            color: var(--info);
+        }
+
         /* টুলবার */
         .toolbar {
-            background: var(--glass);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 15px 20px;
-            margin-bottom: 20px;
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
             align-items: center;
         }
-        
+
         .btn {
             padding: 10px 20px;
             border-radius: 12px;
-            border: 1px solid var(--border);
-            background: var(--glass);
-            color: var(--text);
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            color: var(--text-primary);
             cursor: pointer;
             font-weight: 500;
-            transition: all 0.3s;
+            font-size: 14px;
+            transition: all 0.3s ease;
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            font-size: 14px;
+            text-decoration: none;
+            backdrop-filter: blur(10px);
         }
-        
+
         .btn:hover {
-            background: var(--accent);
-            border-color: var(--accent);
+            background: var(--accent-1);
+            border-color: var(--accent-1);
             transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(139, 92, 246, 0.3);
         }
-        
-        .btn-glass {
-            background: rgba(139, 92, 246, 0.2);
-            border-color: var(--accent);
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+            border: none;
+            color: white;
         }
-        
-        /* ফাইল কার্ড গ্রিড */
-        .file-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 15px;
+
+        .btn-success { 
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
         }
-        
-        .file-card {
-            background: var(--glass);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 20px;
-            transition: all 0.3s;
-            cursor: pointer;
+
+        .btn-danger { 
+            background: var(--danger);
+            border-color: var(--danger);
+            color: white;
         }
-        
-        .file-card:hover {
-            border-color: var(--accent);
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
         }
-        
-        .file-card-header {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .file-icon {
-            font-size: 40px;
-            background: var(--glass);
-            border-radius: 12px;
-            width: 60px;
-            height: 60px;
+
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            padding: 0;
             display: flex;
             align-items: center;
             justify-content: center;
+            border-radius: 10px;
         }
-        
+
+        /* ব্রেডক্রাম্ব */
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 0;
+            font-size: 14px;
+        }
+
+        .breadcrumb a {
+            color: var(--accent-1);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+        .breadcrumb .separator {
+            color: var(--text-secondary);
+        }
+
+        /* ফাইল গ্রিড */
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+        }
+
+        .file-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .file-card:hover {
+            border-color: var(--accent-1);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .file-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .file-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .file-icon.folder {
+            color: var(--warning);
+        }
+
+        .file-icon.image {
+            color: var(--success);
+        }
+
+        .file-icon.code {
+            color: var(--info);
+        }
+
         .file-info {
             flex: 1;
+            min-width: 0;
         }
-        
+
         .file-name {
             font-weight: 600;
             font-size: 16px;
             word-break: break-word;
+            margin-bottom: 5px;
         }
-        
+
+        .file-name a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .file-name a:hover {
+            color: var(--accent-1);
+        }
+
         .file-meta {
             font-size: 12px;
-            color: var(--muted);
-            margin-top: 5px;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
         }
-        
+
         .file-actions {
             display: flex;
             gap: 8px;
             margin-top: 15px;
             flex-wrap: wrap;
         }
-        
-        .action-btn {
+
+        /* মোডাল */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 30px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 85vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .close-btn {
             width: 36px;
             height: 36px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: var(--glass);
-            color: var(--text);
+            border-radius: 50%;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            color: var(--text-primary);
             cursor: pointer;
-            transition: all 0.3s;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+
+        .close-btn:hover {
+            background: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
             font-size: 14px;
         }
-        
-        .action-btn:hover {
-            background: var(--accent);
-            border-color: var(--accent);
+
+        .input-field {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.3s;
         }
-        
-        /* নোটিফিকেশন টোস্ট */
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent-1);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+        }
+
+        textarea.input-field {
+            min-height: 300px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+
+        /* টোস্ট নোটিফিকেশন */
         .toast {
             position: fixed;
             top: 20px;
             right: 20px;
-            z-index: 1000;
-            padding: 15px 25px;
+            z-index: 2000;
+            padding: 16px 24px;
             border-radius: 12px;
-            animation: slideIn 0.3s ease;
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
             backdrop-filter: blur(20px);
+            animation: slideInRight 0.3s ease;
+            max-width: 400px;
         }
-        
-        @keyframes slideIn {
+
+        @keyframes slideInRight {
             from { transform: translateX(100px); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
-        
-        .toast.success {
-            background: rgba(16, 185, 129, 0.2);
-            border: 1px solid var(--success);
-        }
-        
-        .toast.error {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid var(--danger);
-        }
-        
-        /* লগইন মোডাল */
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 999;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .modal.show { display: flex; }
-        
-        .modal-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 24px;
+
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--danger); }
+
+        /* আপলোড এরিয়া */
+        .upload-dropzone {
+            border: 2px dashed var(--glass-border);
+            border-radius: 16px;
             padding: 40px;
-            width: 90%;
-            max-width: 400px;
-            animation: scaleUp 0.3s ease;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            margin: 20px 0;
         }
-        
-        @keyframes scaleUp {
-            from { transform: scale(0.9); }
-            to { transform: scale(1); }
+
+        .upload-dropzone:hover,
+        .upload-dropzone.drag-over {
+            border-color: var(--accent-1);
+            background: rgba(139, 92, 246, 0.1);
         }
-        
-        .input-field {
-            width: 100%;
-            padding: 12px 16px;
-            background: var(--glass);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            color: var(--text);
-            font-size: 14px;
-            margin: 10px 0;
+
+        .upload-dropzone i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            color: var(--accent-1);
         }
-        
-        .input-field:focus {
-            outline: none;
-            border-color: var(--accent);
+
+        /* এম্পটি স্টেট */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
         }
-        
-        /* প্রোগ্রেস বার */
-        .upload-progress {
-            background: var(--border);
-            height: 4px;
-            border-radius: 2px;
-            margin: 10px 0;
+
+        .empty-state i {
+            font-size: 80px;
+            color: var(--glass-border);
+            margin-bottom: 20px;
         }
-        
-        .upload-progress-fill {
-            background: linear-gradient(90deg, #8b5cf6, #ec4899);
-            height: 100%;
-            border-radius: 2px;
-            transition: width 0.3s;
-        }
-        
-        /* রেস্পন্সিভ */
+
+        /* রেস্পন্সিভ ডিজাইন */
         @media (max-width: 768px) {
-            .file-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .header-content {
+            .header {
                 flex-direction: column;
                 text-align: center;
             }
-            
-            .fab-container {
-                bottom: 20px;
-                right: 20px;
+
+            .file-grid {
+                grid-template-columns: 1fr;
             }
-            
-            .fab {
+
+            .toolbar {
+                justify-content: center;
+            }
+
+            .modal {
+                width: 95%;
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .logo-icon {
                 width: 50px;
                 height: 50px;
-                font-size: 20px;
+                font-size: 24px;
+            }
+
+            .logo-text h1 {
+                font-size: 22px;
             }
         }
-        
-        /* লোডিং অ্যানিমেশন */
-        .loading {
-            display: inline-block;
+
+        /* লোডিং স্পিনার */
+        .spinner {
             width: 20px;
             height: 20px;
-            border: 2px solid var(--border);
-            border-top-color: var(--accent);
+            border: 2px solid var(--glass-border);
+            border-top-color: var(--accent-1);
             border-radius: 50%;
             animation: spin 0.6s linear infinite;
+            display: inline-block;
         }
-        
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
-    <?php if (!$isLoggedIn): ?>
     <!-- লগইন স্ক্রিন -->
-    <div class="modal show" id="loginModal">
-        <div class="modal-card">
-            <div style="text-align:center; margin-bottom:30px;">
-                <i class="fas fa-shield-haltered" style="font-size:60px; background:linear-gradient(135deg, #8b5cf6, #ec4899); -webkit-background-clip:text; -webkit-text-fill-color:transparent;"></i>
-                <h2 style="margin-top:15px;">🔐 লগইন</h2>
-                <p style="color:var(--muted); margin-top:10px;">পাবলিক সার্ভার অ্যাক্সেস করতে পাসওয়ার্ড দিন</p>
+    <?php if (!$isLoggedIn): ?>
+    <div style="display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px;">
+        <div class="glass-card" style="max-width:400px; width:100%; text-align:center;">
+            <div style="margin-bottom:30px;">
+                <div class="logo-icon" style="margin:0 auto 20px;">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <h2 style="font-size:24px; margin-bottom:10px;">🔐 লগইন প্রয়োজন</h2>
+                <p style="color:var(--text-secondary); font-size:14px;">
+                    এই সার্ভারটি প্রাইভেট। অ্যাক্সেস করতে পাসওয়ার্ড দিন।
+                </p>
             </div>
             <form method="POST">
-                <input type="password" name="password" class="input-field" placeholder="পাসওয়ার্ড লিখুন" required>
-                <button type="submit" class="btn btn-glass" style="width:100%; margin-top:20px; justify-content:center;">
-                    <i class="fas fa-lock-open"></i> লগইন
+                <div class="input-group">
+                    <input type="password" name="password" class="input-field" 
+                           placeholder="পাসওয়ার্ড লিখুন" required 
+                           style="text-align:center; font-size:16px;">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">
+                    <i class="fas fa-sign-in-alt"></i> লগইন
                 </button>
             </form>
-            <p style="text-align:center; color:var(--muted); margin-top:20px; font-size:12px;">
-                ডিফল্ট পাসওয়ার্ড: admin123
+            <p style="margin-top:20px; font-size:12px; color:var(--text-secondary);">
+                ডিফল্ট পাসওয়ার্ড: <code style="background:var(--glass-bg); padding:2px 8px; border-radius:4px;">admin123</code>
             </p>
         </div>
     </div>
-    <?php endif; ?>
-
-    <div class="container">
+    <?php else: ?>
+    <!-- মেইন অ্যাপ -->
+    <div class="app-container">
         <!-- হেডার -->
-        <div class="header">
-            <div class="header-content">
-                <div class="logo">
-                    <i class="fas fa-globe logo-icon"></i>
-                    <span>পাবলিক সার্ভার</span>
+        <div class="glass-card">
+            <div class="header">
+                <div class="logo-section">
+                    <div class="logo-icon">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1><?= $siteName ?></h1>
+                        <p><?= $siteDescription ?></p>
+                    </div>
                 </div>
                 <div class="status-badges">
-                    <div class="badge online">
+                    <div class="status-badge online">
                         <i class="fas fa-circle" style="font-size:8px;"></i>
                         অনলাইন
                     </div>
-                    <div class="badge public">
-                        <i class="fas fa-users"></i>
-                        পাবলিক
-                    </div>
-                    <div class="badge">
+                    <div class="status-badge files">
                         <i class="fas fa-folder"></i>
                         <?= count($items) ?> ফাইল
                     </div>
+                    <a href="?logout=1" class="btn btn-sm" style="color:var(--danger);">
+                        <i class="fas fa-sign-out-alt"></i> লগআউট
+                    </a>
                 </div>
             </div>
         </div>
 
+        <!-- নোটিফিকেশন -->
         <?php if ($message): ?>
         <div class="toast <?= $messageType ?>" id="toast" onclick="this.remove()">
-            <?= $message ?>
+            <strong><?= $message ?></strong>
         </div>
         <?php endif; ?>
 
-        <!-- টুলবার -->
-        <div class="toolbar">
-            <button class="btn btn-glass" onclick="document.getElementById('fileInput').click()">
-                <i class="fas fa-cloud-upload-alt"></i> আপলোড
-            </button>
-            <button class="btn" onclick="createNew()">
-                <i class="fas fa-plus-circle"></i> নতুন
-            </button>
-            <button class="btn" onclick="location.reload()">
-                <i class="fas fa-sync-alt"></i> রিফ্রেশ
-            </button>
-            <div style="flex:1;"></div>
-            <!-- ব্রেডক্রাম্ব -->
-            <div style="display:flex; align-items:center; gap:8px; color:var(--muted);">
-                <a href="?" style="color:var(--accent); text-decoration:none;">
-                    <i class="fas fa-home"></i>
-                </a>
+        <!-- টুলবার ও ব্রেডক্রাম্ব -->
+        <div class="glass-card">
+            <div class="toolbar">
+                <button class="btn btn-primary" onclick="openUploadModal()">
+                    <i class="fas fa-cloud-upload-alt"></i> আপলোড
+                </button>
+                <button class="btn" onclick="openCreateModal()">
+                    <i class="fas fa-plus"></i> নতুন
+                </button>
+                <button class="btn" onclick="location.reload()">
+                    <i class="fas fa-sync-alt"></i> রিফ্রেশ
+                </button>
+                <button class="btn" onclick="sharePage()">
+                    <i class="fas fa-share-alt"></i> শেয়ার
+                </button>
+            </div>
+            
+            <div class="breadcrumb">
+                <a href="?"><i class="fas fa-home"></i> হোম</a>
                 <?php if ($currentDir):
                     $parts = explode('/', $currentDir);
                     $path = '';
                     foreach ($parts as $part):
                         $path .= ($path ? '/' : '') . $part; ?>
-                        <span>/</span>
-                        <a href="?dir=<?= urlencode($path) ?>" style="color:var(--accent); text-decoration:none;">
-                            <?= htmlspecialchars($part) ?>
-                        </a>
+                        <span class="separator">/</span>
+                        <a href="?dir=<?= urlencode($path) ?>"><?= htmlspecialchars($part) ?></a>
                     <?php endforeach;
                 endif; ?>
             </div>
         </div>
 
-        <!-- ফাইল গ্রিড -->
+        <!-- ফাইল লিস্ট -->
         <div class="file-grid">
             <?php foreach ($items as $item): ?>
             <div class="file-card">
                 <div class="file-card-header">
-                    <div class="file-icon">
-                        <i class="fas <?= $item['is_dir'] ? 'fa-folder text-warning' : getIcon($item['type']) ?>" 
-                           style="font-size:30px;"></i>
+                    <div class="file-icon <?= $item['is_dir'] ? 'folder' : (in_array($item['type'], ['jpg','jpeg','png','gif','svg']) ? 'image' : 'code') ?>">
+                        <i class="fas <?= $item['is_dir'] ? 'fa-folder' : getFileIcon($item['type']) ?>"></i>
                     </div>
                     <div class="file-info">
                         <div class="file-name">
                             <?php if ($item['is_dir']): ?>
-                                <a href="?dir=<?= urlencode(($currentDir ? $currentDir . '/' : '') . $item['name']) ?>" 
-                                   style="color:var(--text); text-decoration:none;">
+                                <a href="?dir=<?= urlencode(($currentDir ? $currentDir . '/' : '') . $item['name']) ?>">
                                     <?= htmlspecialchars($item['name']) ?>
                                 </a>
                             <?php else: ?>
@@ -701,28 +912,26 @@ function humanFileSize($bytes) {
                             <?php endif; ?>
                         </div>
                         <div class="file-meta">
-                            <?= $item['is_dir'] ? '📁 ফোল্ডার' : '📄 ' . humanFileSize($item['size']) ?>
-                            <br>
-                            <?= date('d M Y, h:i A', $item['modified']) ?>
+                            <span><?= $item['is_dir'] ? '📁 ফোল্ডার' : humanFileSize($item['size']) ?></span>
+                            <span><?= date('d M, h:i A', $item['modified']) ?></span>
                         </div>
                     </div>
                 </div>
                 <div class="file-actions">
                     <?php if (!$item['is_dir']): ?>
                         <a href="public_files/<?= ($currentDir ? $currentDir . '/' : '') . $item['name'] ?>" 
-                           target="_blank" class="action-btn" title="লাইভ প্রিভিউ">
-                            <i class="fas fa-external-link-alt"></i>
+                           target="_blank" class="btn btn-success btn-sm">
+                            <i class="fas fa-play"></i> প্রিভিউ
                         </a>
-                        <button class="action-btn" onclick="editFile('<?= $item['name'] ?>')" title="এডিট">
+                        <button class="btn btn-sm" onclick="editFile('<?= htmlspecialchars($item['name']) ?>')">
                             <i class="fas fa-edit"></i>
                         </button>
                     <?php endif; ?>
-                    <button class="action-btn" onclick="renameItem('<?= $item['name'] ?>')" title="রিনেম">
-                        <i class="fas fa-pencil-alt"></i>
+                    <button class="btn btn-sm" onclick="renameItem('<?= htmlspecialchars($item['name']) ?>')">
+                        <i class="fas fa-tag"></i>
                     </button>
-                    <button class="action-btn" onclick="deleteItem('<?= $item['name'] ?>')" 
-                            style="color:var(--danger);" title="ডিলিট">
-                        <i class="fas fa-trash-alt"></i>
+                    <button class="btn btn-danger btn-sm" onclick="deleteItem('<?= htmlspecialchars($item['name']) ?>')">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
@@ -730,86 +939,78 @@ function humanFileSize($bytes) {
         </div>
 
         <?php if (empty($items)): ?>
-        <div style="text-align:center; padding:60px; color:var(--muted);">
-            <i class="fas fa-cloud-upload-alt" style="font-size:80px; margin-bottom:20px; opacity:0.3;"></i>
-            <h3>ফোল্ডার খালি</h3>
-            <p>আপলোড বাটনে ক্লিক করে ফাইল শেয়ার করুন</p>
+        <div class="glass-card">
+            <div class="empty-state">
+                <i class="fas fa-folder-open"></i>
+                <h3>কোনো ফাইল নেই</h3>
+                <p style="color:var(--text-secondary);">এই ফোল্ডারটি খালি। উপরের বাটন থেকে ফাইল আপলোড করুন।</p>
+            </div>
         </div>
         <?php endif; ?>
     </div>
 
-    <!-- ফ্লোটিং অ্যাকশন বাটন -->
-    <div class="fab-container">
-        <div class="fab-menu" id="fabMenu">
-            <button class="fab-item" onclick="shareLink()" title="শেয়ার লিংক">
-                <i class="fas fa-share-alt"></i>
-            </button>
-            <button class="fab-item" onclick="document.getElementById('fileInput').click()" title="আপলোড">
-                <i class="fas fa-upload"></i>
-            </button>
-            <button class="fab-item" onclick="location.reload()" title="রিফ্রেশ">
-                <i class="fas fa-sync-alt"></i>
-            </button>
+    <!-- আপলোড মোডাল -->
+    <div class="modal-overlay" id="uploadModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">📤 ফাইল আপলোড</h3>
+                <button class="close-btn" onclick="closeModal('uploadModal')">✕</button>
+            </div>
+            <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                <input type="hidden" name="action" value="upload">
+                <div class="upload-dropzone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <h3>ক্লিক করুন অথবা ফাইল ড্র্যাগ করুন</h3>
+                    <p style="color:var(--text-secondary);">সব ধরনের ফাইল সাপোর্টেড</p>
+                    <input type="file" name="files[]" id="fileInput" multiple 
+                           style="display:none;" onchange="handleFiles(this.files)">
+                </div>
+                <div id="selectedFilesList" style="margin-top:15px;"></div>
+                <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
+                    <button type="button" class="btn" onclick="closeModal('uploadModal')">বাতিল</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> আপলোড
+                    </button>
+                </div>
+            </form>
         </div>
-        <button class="fab" onclick="toggleFab()">
-            <i class="fas fa-plus" id="fabIcon"></i>
-        </button>
     </div>
 
-    <!-- হিডেন ফাইল ইনপুট -->
-    <form id="uploadForm" method="POST" enctype="multipart/form-data" style="display:none;">
-        <input type="hidden" name="action" value="upload">
-        <input type="file" name="files[]" id="fileInput" multiple 
-               onchange="handleUpload(this.files)">
-    </form>
+    <!-- এডিট মোডাল -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">✏️ ফাইল এডিটর</h3>
+                <button class="close-btn" onclick="closeModal('editModal')">✕</button>
+            </div>
+            <form method="POST" id="editForm">
+                <input type="hidden" name="action" value="save">
+                <input type="hidden" name="file" id="editFileName">
+                <div class="input-group">
+                    <textarea name="content" class="input-field" id="editor" 
+                              placeholder="লোড হচ্ছে..."></textarea>
+                </div>
+                <div style="display:flex; gap:10px; justify-content:flex-end;">
+                    <button type="button" class="btn" onclick="closeModal('editModal')">বাতিল</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> সংরক্ষণ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <script>
-        function toggleFab() {
-            const menu = document.getElementById('fabMenu');
-            const icon = document.getElementById('fabIcon');
-            menu.classList.toggle('show');
-            icon.className = menu.classList.contains('show') ? 'fas fa-times' : 'fas fa-plus';
+        // গ্লোবাল ফাংশন
+        function openUploadModal() {
+            document.getElementById('uploadModal').classList.add('show');
         }
 
-        function handleUpload(files) {
-            if (!files.length) return;
-            
-            const formData = new FormData(document.getElementById('uploadForm'));
-            for (let file of files) {
-                formData.append('files[]', file);
-            }
-            
-            // আপলোড প্রোগ্রেস দেখান
-            const loadingToast = document.createElement('div');
-            loadingToast.className = 'toast';
-            loadingToast.innerHTML = '<div class="loading"></div> আপলোড হচ্ছে...';
-            document.body.appendChild(loadingToast);
-            
-            fetch('', { method: 'POST', body: formData })
-                .then(() => {
-                    loadingToast.remove();
-                    location.reload();
-                });
-        }
-
-        function shareLink() {
-            const url = window.location.href;
-            if (navigator.share) {
-                navigator.share({
-                    title: 'পাবলিক সার্ভার',
-                    text: 'আমার পাবলিক সার্ভার ভিজিট করুন!',
-                    url: url
-                });
-            } else {
-                navigator.clipboard.writeText(url);
-                alert('লিংক কপি করা হয়েছে: ' + url);
-            }
-        }
-
-        function createNew() {
+        function openCreateModal() {
             const name = prompt('নাম লিখুন:');
             if (!name) return;
-            const type = confirm('ফোল্ডার তৈরি করতে OK চাপুন') ? 'folder' : 'file';
+            const type = confirm('ফোল্ডার তৈরি করতে OK, ফাইল তৈরি করতে Cancel চাপুন') ? 'folder' : 'file';
             
             const form = document.createElement('form');
             form.method = 'POST';
@@ -822,21 +1023,40 @@ function humanFileSize($bytes) {
             form.submit();
         }
 
-        function editFile(name) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.innerHTML = `
-                <input type="hidden" name="action" value="save">
-                <input type="hidden" name="file" value="${name}">
-                <input type="hidden" name="content" value="${prompt('কন্টেন্ট:', '')}">
-            `;
-            document.body.appendChild(form);
-            form.submit();
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
+        function handleFiles(files) {
+            const list = document.getElementById('selectedFilesList');
+            list.innerHTML = Array.from(files).map(file => `
+                <div style="display:flex; justify-content:space-between; align-items:center; 
+                            padding:10px; background:var(--glass-bg); border-radius:8px; margin:5px 0;">
+                    <span><i class="fas fa-file"></i> ${file.name}</span>
+                    <span style="color:var(--text-secondary); font-size:12px;">${formatSize(file.size)}</span>
+                </div>
+            `).join('');
+        }
+
+        async function editFile(filename) {
+            document.getElementById('editFileName').value = filename;
+            document.getElementById('editor').value = 'লোড হচ্ছে...';
+            document.getElementById('editModal').classList.add('show');
+            
+            try {
+                const response = await fetch(`?action=read&file=${encodeURIComponent(filename)}&dir=<?= urlencode($currentDir) ?>`);
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('editor').value = data.content;
+                }
+            } catch (error) {
+                alert('ফাইল লোড করা যায়নি');
+            }
         }
 
         function renameItem(oldName) {
-            const newName = prompt('নতুন নাম:', oldName);
-            if (!newName) return;
+            const newName = prompt('নতুন নাম লিখুন:', oldName);
+            if (!newName || newName === oldName) return;
             
             const form = document.createElement('form');
             form.method = 'POST';
@@ -850,7 +1070,7 @@ function humanFileSize($bytes) {
         }
 
         function deleteItem(name) {
-            if (!confirm(`${name} ডিলিট করবেন?`)) return;
+            if (!confirm(`"${name}" ডিলিট করতে চান? এই কাজটি আনডু করা যাবে না!`)) return;
             
             const form = document.createElement('form');
             form.method = 'POST';
@@ -862,40 +1082,48 @@ function humanFileSize($bytes) {
             form.submit();
         }
 
-        // ড্র্যাগ & ড্রপ
-        document.addEventListener('dragover', (e) => {
-            e.preventDefault();
-        });
-        
+        function sharePage() {
+            const url = window.location.href;
+            if (navigator.share) {
+                navigator.share({
+                    title: '<?= $siteName ?>',
+                    text: 'আমার পাবলিক সার্ভার ভিজিট করুন!',
+                    url: url
+                });
+            } else {
+                navigator.clipboard.writeText(url);
+                alert('লিংক কপি করা হয়েছে: ' + url);
+            }
+        }
+
+        function formatSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i];
+        }
+
+        // ড্র্যাগ অ্যান্ড ড্রপ
+        document.addEventListener('dragover', (e) => e.preventDefault());
         document.addEventListener('drop', (e) => {
             e.preventDefault();
-            handleUpload(e.dataTransfer.files);
+            document.getElementById('fileInput').files = e.dataTransfer.files;
+            handleFiles(e.dataTransfer.files);
+            openUploadModal();
         });
 
-        // টোস্ট অটো-হাইড
+        // কীবোর্ড শর্টকাট
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+            }
+        });
+
+        // অটো-হাইড টোস্ট
         setTimeout(() => {
             const toast = document.getElementById('toast');
-            if (toast) toast.remove();
-        }, 3000);
+            if (toast) toast.style.display = 'none';
+        }, 5000);
     </script>
 </body>
 </html>
-<?php
-function getIcon($type) {
-    $icons = [
-        'php' => 'fa-php',
-        'html' => 'fa-html5',
-        'css' => 'fa-css3-alt',
-        'js' => 'fa-js',
-        'jpg' => 'fa-image',
-        'jpeg' => 'fa-image',
-        'png' => 'fa-image',
-        'gif' => 'fa-image',
-        'pdf' => 'fa-file-pdf',
-        'zip' => 'fa-file-archive',
-        'mp4' => 'fa-video',
-        'mp3' => 'fa-music',
-    ];
-    return $icons[$type] ?? 'fa-file';
-}
-?>

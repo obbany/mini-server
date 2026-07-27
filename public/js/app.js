@@ -1,4 +1,7 @@
-// Main Application Logic
+// ============================================
+// TERMUX CPANEL - MAIN APPLICATION
+// ============================================
+
 class TermuxCPanel {
     constructor() {
         this.currentPage = 'dashboard';
@@ -12,10 +15,11 @@ class TermuxCPanel {
         this.startSystemMonitoring();
         this.setupFileUpload();
         this.loadSites();
+        this.loadDomains();
+        this.checkForUpdates();
     }
     
     setupEventListeners() {
-        // Handle page navigation
         document.querySelectorAll('.sidebar-link').forEach(link => {
             link.addEventListener('click', (e) => {
                 const page = link.dataset.page;
@@ -27,13 +31,11 @@ class TermuxCPanel {
     switchPage(page) {
         this.currentPage = page;
         
-        // Update sidebar
         document.querySelectorAll('.sidebar-link').forEach(link => {
             link.classList.toggle('active', link.dataset.page === page);
         });
         
-        // Update pages
-        document.querySelectorAll('.page-content').forEach(content => {
+        document.querySelectorAll('.page-content-inner').forEach(content => {
             content.classList.add('hidden');
         });
         
@@ -42,23 +44,22 @@ class TermuxCPanel {
             targetPage.classList.remove('hidden');
         }
         
-        // Update title
         const titles = {
             dashboard: 'Dashboard',
             files: 'File Manager',
             git: 'GitHub Deployer',
+            domains: 'Domain Manager',
             tunnel: 'Cloudflare Tunnel',
             sites: 'Hosted Sites'
         };
         document.getElementById('page-title').textContent = titles[page] || page;
         
-        // Load page data
         if (page === 'dashboard') this.loadDashboard();
         if (page === 'sites') this.loadSites();
         if (page === 'files') fileManager.loadFiles();
         if (page === 'git') gitDeploy.loadDeployedSites();
+        if (page === 'domains') this.loadDomains();
         
-        // Close sidebar on mobile
         if (window.innerWidth < 1024) {
             this.closeSidebar();
         }
@@ -80,7 +81,6 @@ class TermuxCPanel {
         try {
             const response = await fetch('/api/health');
             const data = await response.json();
-            
             if (data.status === 'online') {
                 this.updateDashboardMetrics(data);
                 this.updateSidebarMetrics(data);
@@ -89,7 +89,6 @@ class TermuxCPanel {
             console.error('Failed to load dashboard:', error);
         }
         
-        // Load sites for dashboard
         try {
             const sitesResponse = await fetch('/api/sites');
             const sitesData = await sitesResponse.json();
@@ -117,7 +116,6 @@ class TermuxCPanel {
         document.getElementById('dashboard-storage-bar').style.width = `${Math.min(storage, 100)}%`;
         
         document.getElementById('dashboard-uptime').textContent = this.formatUptime(uptime);
-        document.getElementById('dashboard-node-uptime').textContent = `Node: ${this.formatUptime(uptime)}`;
     }
     
     updateSidebarMetrics(data) {
@@ -180,12 +178,72 @@ class TermuxCPanel {
         try {
             const response = await fetch('/api/sites');
             const data = await response.json();
-            
             if (data.success) {
                 siteManager.renderSites(data.sites);
+                this.updateSiteSelect(data.sites);
             }
         } catch (error) {
             console.error('Failed to load sites:', error);
+        }
+    }
+    
+    updateSiteSelect(sites) {
+        const select = document.getElementById('domain-site');
+        if (!select) return;
+        select.innerHTML = '<option value="">Select a site...</option>';
+        if (sites) {
+            sites.forEach(site => {
+                select.innerHTML += `<option value="${site.name}">${site.name}</option>`;
+            });
+        }
+    }
+    
+    async loadDomains() {
+        try {
+            const response = await fetch('/api/domains');
+            const data = await response.json();
+            if (data.success) {
+                this.renderDomains(data.domains);
+            }
+        } catch (error) {
+            console.error('Failed to load domains:', error);
+        }
+    }
+    
+    renderDomains(domains) {
+        const container = document.getElementById('domain-list');
+        if (!domains || domains.length === 0) {
+            container.innerHTML = '<p class="text-sm text-slate-400">No domains added yet</p>';
+            return;
+        }
+        
+        container.innerHTML = domains.map(domain => `
+            <div class="flex items-center justify-between p-3 glass-light rounded-lg">
+                <div>
+                    <div class="font-medium text-indigo-400">${domain.domain}</div>
+                    <div class="text-xs text-slate-400">→ ${domain.site || 'No site'}</div>
+                </div>
+                <div class="flex gap-2">
+                    <span class="text-xs px-2 py-1 rounded-full ${domain.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">
+                        ${domain.status || 'pending'}
+                    </span>
+                    <button onclick="domainManager.removeDomain('${domain.id}')" class="text-red-400 hover:text-red-300">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    async checkForUpdates() {
+        try {
+            const response = await fetch('/api/update/check');
+            const data = await response.json();
+            if (data.hasUpdate) {
+                document.getElementById('update-badge').classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error('Failed to check updates:', error);
         }
     }
     
@@ -194,37 +252,32 @@ class TermuxCPanel {
         if (this.currentPage === 'files') fileManager.loadFiles();
         if (this.currentPage === 'sites') this.loadSites();
         if (this.currentPage === 'git') gitDeploy.loadDeployedSites();
-        
+        if (this.currentPage === 'domains') this.loadDomains();
         showToast('Refreshed', 'success');
     }
     
     showToast(message, type = 'info') {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
+        toast.className = `toast toast-${type}`;
         toast.textContent = message;
         container.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 100);
-        
+        setTimeout(() => toast.classList.add('show'), 100);
         setTimeout(() => {
             toast.classList.remove('show');
-            setTimeout(() => {
-                toast.remove();
-            }, 300);
+            setTimeout(() => toast.remove(), 300);
         }, 3000);
     }
 }
 
-// File Manager
+// ============================================
+// FILE MANAGER
+// ============================================
 class FileManager {
     constructor() {
         this.currentPath = '';
         this.selectedFile = null;
         this.editor = null;
-        this.files = [];
         this.init();
     }
     
@@ -251,7 +304,6 @@ class FileManager {
                 tabSize: 2
             });
             
-            // Save on Ctrl+S
             this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
                 this.saveFile();
             });
@@ -260,17 +312,14 @@ class FileManager {
     
     async loadFiles(path = '') {
         this.currentPath = path;
-        
         try {
             const response = await fetch('/api/files/list', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ path: this.currentPath })
             });
-            
             const data = await response.json();
             if (data.success) {
-                this.files = data.items;
                 this.renderFiles(data.items);
                 this.renderBreadcrumb(data.currentPath);
                 document.getElementById('file-count').textContent = `${data.items.length} items`;
@@ -288,7 +337,6 @@ class FileManager {
             return;
         }
         
-        // Sort: directories first, then files
         const sorted = items.sort((a, b) => {
             if (a.isDirectory && !b.isDirectory) return -1;
             if (!a.isDirectory && b.isDirectory) return 1;
@@ -300,14 +348,14 @@ class FileManager {
                  data-path="${item.path}" 
                  onclick="fileManager.selectFile('${item.path}', ${item.isDirectory})"
                  ondblclick="fileManager.openFile('${item.path}', ${item.isDirectory})">
-                <i class="${item.isDirectory ? 'fas fa-folder text-indigo-400' : 'fas fa-file text-slate-400'}"></i>
-                <span class="flex-1">${item.name}</span>
-                <span class="text-xs text-slate-500">${item.isDirectory ? '' : this.formatSize(item.size)}</span>
-                <span class="text-xs text-slate-500">${this.formatDate(item.modified)}</span>
-                <div class="flex gap-1">
-                    ${!item.isDirectory ? `<button onclick="event.stopPropagation(); fileManager.editFile('${item.path}')" class="text-xs text-indigo-400 hover:text-indigo-300">Edit</button>` : ''}
-                    <button onclick="event.stopPropagation(); fileManager.renameFile('${item.path}')" class="text-xs text-slate-400 hover:text-white">Rename</button>
-                    <button onclick="event.stopPropagation(); fileManager.deleteFile('${item.path}')" class="text-xs text-red-400 hover:text-red-300">Delete</button>
+                <i class="${item.isDirectory ? 'fas fa-folder text-indigo-400' : 'fas fa-file text-slate-400'} file-icon"></i>
+                <span class="file-name">${item.name}</span>
+                <span class="file-meta">${item.isDirectory ? '' : this.formatSize(item.size)}</span>
+                <span class="file-meta">${this.formatDate(item.modified)}</span>
+                <div class="file-actions">
+                    ${!item.isDirectory ? `<button onclick="event.stopPropagation(); fileManager.editFile('${item.path}')">Edit</button>` : ''}
+                    <button onclick="event.stopPropagation(); fileManager.renameFile('${item.path}')">Rename</button>
+                    <button onclick="event.stopPropagation(); fileManager.deleteFile('${item.path}')">Delete</button>
                 </div>
             </div>
         `).join('');
@@ -316,18 +364,15 @@ class FileManager {
     renderBreadcrumb(currentPath) {
         const container = document.getElementById('breadcrumb');
         const parts = currentPath ? currentPath.split('/').filter(p => p) : [];
-        
         let html = '<span class="text-slate-400">/</span>';
         let path = '';
-        
         parts.forEach((part, index) => {
             path += '/' + part;
             const isLast = index === parts.length - 1;
             html += `<span class="text-slate-400">/</span>`;
-            html += `<span class="${isLast ? 'text-indigo-400 font-medium' : 'text-slate-300 hover:text-white cursor-pointer'}" 
+            html += `<span class="${isLast ? 'current' : 'text-slate-300 hover:text-white cursor-pointer'}" 
                            onclick="${isLast ? '' : `fileManager.loadFiles('${path}')`}">${part}</span>`;
         });
-        
         container.innerHTML = html;
     }
     
@@ -354,34 +399,19 @@ class FileManager {
         try {
             const response = await fetch(`/api/files/read/${encodeURIComponent(path)}`);
             const data = await response.json();
-            
             if (data.success) {
                 this.selectedFile = path;
                 document.getElementById('editor-file-path').textContent = path;
-                
-                // Set language
                 const ext = path.split('.').pop().toLowerCase();
                 const languages = {
-                    'js': 'javascript',
-                    'ts': 'typescript',
-                    'html': 'html',
-                    'css': 'css',
-                    'json': 'json',
-                    'py': 'python',
-                    'md': 'markdown',
-                    'php': 'php',
-                    'xml': 'xml',
-                    'yml': 'yaml',
-                    'yaml': 'yaml',
-                    'txt': 'plaintext',
+                    'js': 'javascript', 'ts': 'typescript', 'html': 'html',
+                    'css': 'css', 'json': 'json', 'py': 'python',
+                    'md': 'markdown', 'php': 'php', 'xml': 'xml',
+                    'yml': 'yaml', 'yaml': 'yaml', 'txt': 'plaintext',
                     'sh': 'shell'
                 };
-                const language = languages[ext] || 'plaintext';
-                monaco.editor.setModelLanguage(this.editor.getModel(), language);
-                
+                monaco.editor.setModelLanguage(this.editor.getModel(), languages[ext] || 'plaintext');
                 this.editor.setValue(data.content);
-                
-                // Update file list highlighting
                 document.querySelectorAll('.file-item').forEach(el => {
                     el.classList.toggle('selected', el.dataset.path === path);
                 });
@@ -397,19 +427,13 @@ class FileManager {
             showToast('No file selected', 'error');
             return;
         }
-        
         const content = this.editor.getValue();
-        
         try {
             const response = await fetch('/api/files/write', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    path: this.selectedFile,
-                    content: content
-                })
+                body: JSON.stringify({ path: this.selectedFile, content })
             });
-            
             const data = await response.json();
             if (data.success) {
                 showToast('File saved successfully', 'success');
@@ -426,18 +450,12 @@ class FileManager {
     async createFolder() {
         const name = prompt('Enter folder name:');
         if (!name) return;
-        
         try {
             const response = await fetch('/api/files/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    path: this.currentPath,
-                    name: name,
-                    type: 'directory'
-                })
+                body: JSON.stringify({ path: this.currentPath, name, type: 'directory' })
             });
-            
             const data = await response.json();
             if (data.success) {
                 showToast('Folder created', 'success');
@@ -454,18 +472,12 @@ class FileManager {
     async createFile() {
         const name = prompt('Enter file name:');
         if (!name) return;
-        
         try {
             const response = await fetch('/api/files/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    path: this.currentPath,
-                    name: name,
-                    type: 'file'
-                })
+                body: JSON.stringify({ path: this.currentPath, name, type: 'file' })
             });
-            
             const data = await response.json();
             if (data.success) {
                 showToast('File created', 'success');
@@ -484,17 +496,12 @@ class FileManager {
         const currentName = path.split('/').pop();
         const newName = prompt('Enter new name:', currentName);
         if (!newName || newName === currentName) return;
-        
         try {
             const response = await fetch('/api/files/rename', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    oldPath: path,
-                    newName: newName
-                })
+                body: JSON.stringify({ oldPath: path, newName })
             });
-            
             const data = await response.json();
             if (data.success) {
                 showToast('File renamed', 'success');
@@ -510,14 +517,12 @@ class FileManager {
     
     async deleteFile(path) {
         if (!confirm(`Are you sure you want to delete "${path}"?`)) return;
-        
         try {
             const response = await fetch('/api/files/delete', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ paths: [path] })
             });
-            
             const data = await response.json();
             if (data.success) {
                 showToast('File deleted', 'success');
@@ -539,19 +544,16 @@ class FileManager {
     async handleUpload(event) {
         const files = event.target.files;
         if (!files || files.length === 0) return;
-        
         const formData = new FormData();
         formData.append('path', this.currentPath);
         for (const file of files) {
             formData.append('files', file);
         }
-        
         try {
             const response = await fetch('/api/files/upload', {
                 method: 'POST',
                 body: formData
             });
-            
             const data = await response.json();
             if (data.success) {
                 showToast(`${data.files.length} files uploaded`, 'success');
@@ -563,7 +565,6 @@ class FileManager {
             console.error('Failed to upload files:', error);
             showToast('Failed to upload files', 'error');
         }
-        
         event.target.value = '';
     }
     
@@ -586,7 +587,9 @@ class FileManager {
     }
 }
 
-// GitHub Deployer
+// ============================================
+// GITHUB DEPLOYER
+// ============================================
 class GitDeployer {
     constructor() {
         this.sites = [];
@@ -594,45 +597,39 @@ class GitDeployer {
     
     async deploy(event) {
         event.preventDefault();
-        
         const url = document.getElementById('git-url').value;
         const branch = document.getElementById('git-branch').value || 'main';
         const siteName = document.getElementById('git-site-name').value;
         const token = document.getElementById('git-token').value;
-        
         if (!url) {
             showToast('Repository URL is required', 'error');
             return;
         }
-        
         const statusDiv = document.getElementById('git-status');
         const statusContent = document.getElementById('git-status-content');
         statusDiv.classList.remove('hidden');
         statusContent.innerHTML = '<p class="text-sm text-indigo-400">Cloning repository...</p>';
-        
         try {
             const response = await fetch('/api/git/clone', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url, branch, token, siteName })
             });
-            
             const data = await response.json();
             if (data.success) {
                 statusContent.innerHTML = `
                     <p class="text-sm text-green-400">✅ ${data.message}</p>
                     <p class="text-sm text-slate-300 mt-2">Site: <strong>${data.site}</strong></p>
                     <p class="text-sm text-slate-300">Path: <strong>${data.path}</strong></p>
-                    ${data.branch ? `<p class="text-sm text-slate-300">Branch: <strong>${data.branch}</strong></p>` : ''}
                 `;
                 showToast('Repository deployed successfully', 'success');
                 this.loadDeployedSites();
+                app.loadSites();
             } else {
                 statusContent.innerHTML = `<p class="text-sm text-red-400">❌ ${data.error || 'Failed to deploy'}</p>`;
                 showToast('Failed to deploy', 'error');
             }
         } catch (error) {
-            console.error('Deployment error:', error);
             statusContent.innerHTML = `<p class="text-sm text-red-400">❌ ${error.message}</p>`;
             showToast('Failed to deploy', 'error');
         }
@@ -644,14 +641,12 @@ class GitDeployer {
             showToast('Please enter a repository URL', 'error');
             return;
         }
-        
         try {
             const response = await fetch('/api/git/info', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url })
             });
-            
             const data = await response.json();
             if (data.success) {
                 const statusDiv = document.getElementById('git-status');
@@ -663,7 +658,6 @@ class GitDeployer {
                     <p class="text-sm text-slate-300">Default Branch: <strong>${data.defaultBranch}</strong></p>
                     <p class="text-sm text-slate-300">Suggested Site: <strong>${data.suggestedSite}</strong></p>
                 `;
-                
                 if (!document.getElementById('git-site-name').value) {
                     document.getElementById('git-site-name').value = data.suggestedSite;
                 }
@@ -680,7 +674,6 @@ class GitDeployer {
         try {
             const response = await fetch('/api/sites');
             const data = await response.json();
-            
             const container = document.getElementById('deployed-sites');
             if (data.success && data.sites && data.sites.length > 0) {
                 container.innerHTML = data.sites.map(site => `
@@ -715,16 +708,13 @@ class GitDeployer {
     
     async pullSite(siteName) {
         if (!confirm(`Pull latest changes for "${siteName}"?`)) return;
-        
         const token = document.getElementById('git-token').value;
-        
         try {
             const response = await fetch(`/api/git/pull/${siteName}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token })
             });
-            
             const data = await response.json();
             if (data.success) {
                 showToast('Site updated successfully', 'success');
@@ -739,7 +729,9 @@ class GitDeployer {
     }
 }
 
-// Tunnel Manager
+// ============================================
+// TUNNEL MANAGER
+// ============================================
 class TunnelManager {
     constructor() {
         this.quickTunnelUrl = null;
@@ -750,7 +742,6 @@ class TunnelManager {
         try {
             const response = await fetch('/api/tunnel/status');
             const data = await response.json();
-            
             if (data.installed) {
                 document.getElementById('quick-tunnel-status').innerHTML = `
                     <span class="text-green-400">✅ cloudflared installed</span>
@@ -774,7 +765,6 @@ class TunnelManager {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ port: 3000 })
             });
-            
             const data = await response.json();
             if (data.success) {
                 this.quickTunnelUrl = data.url;
@@ -796,10 +786,7 @@ class TunnelManager {
     
     async stop(name) {
         try {
-            const response = await fetch(`/api/tunnel/stop/${name}`, {
-                method: 'POST'
-            });
-            
+            const response = await fetch(`/api/tunnel/stop/${name}`, { method: 'POST' });
             const data = await response.json();
             if (data.success) {
                 if (name === 'quick') {
@@ -824,31 +811,22 @@ class TunnelManager {
     
     async startNamed(event) {
         event.preventDefault();
-        
         const name = document.getElementById('tunnel-name').value;
-        const domain = document.getElementById('tunnel-domain').value;
-        
         if (!name) {
             showToast('Tunnel name is required', 'error');
             return;
         }
-        
         try {
             const response = await fetch('/api/tunnel/start-named', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tunnelName: name,
-                    port: 3000
-                })
+                body: JSON.stringify({ tunnelName: name, port: 3000 })
             });
-            
             const data = await response.json();
             if (data.success) {
                 document.getElementById('named-tunnel-status').innerHTML = `
                     <span class="text-green-400">✅ Named tunnel running</span>
                     <span class="text-xs text-slate-400 block">Name: ${data.tunnelName}</span>
-                    ${domain ? `<span class="text-xs text-slate-400 block">Domain: ${domain}</span>` : ''}
                 `;
                 showToast(`Named tunnel "${name}" started`, 'success');
             } else {
@@ -866,14 +844,12 @@ class TunnelManager {
             showToast('Tunnel name is required', 'error');
             return;
         }
-        
         try {
             const response = await fetch('/api/tunnel/create-named', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tunnelName: name })
             });
-            
             const data = await response.json();
             if (data.success) {
                 showToast(`Tunnel "${name}" created`, 'success');
@@ -889,19 +865,16 @@ class TunnelManager {
     async routeDNS() {
         const name = document.getElementById('tunnel-name').value;
         const domain = document.getElementById('tunnel-domain').value;
-        
         if (!name || !domain) {
             showToast('Tunnel name and domain are required', 'error');
             return;
         }
-        
         try {
             const response = await fetch('/api/tunnel/route-dns', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tunnelName: name, domain })
             });
-            
             const data = await response.json();
             if (data.success) {
                 showToast(`DNS route configured for ${domain}`, 'success');
@@ -915,7 +888,9 @@ class TunnelManager {
     }
 }
 
-// Site Manager
+// ============================================
+// SITE MANAGER
+// ============================================
 class SiteManager {
     constructor() {
         this.sites = [];
@@ -924,26 +899,21 @@ class SiteManager {
     async createSite() {
         const name = prompt('Enter site name (letters, numbers, hyphens, underscores only):');
         if (!name) return;
-        
         if (!/^[a-zA-Z0-9-_]+$/.test(name)) {
             showToast('Invalid site name. Use only letters, numbers, hyphens and underscores.', 'error');
             return;
         }
-        
         try {
             const response = await fetch('/api/sites/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name })
             });
-            
             const data = await response.json();
             if (data.success) {
                 showToast(`Site "${name}" created`, 'success');
                 this.loadSites();
-                if (window.app) {
-                    window.app.loadDashboard();
-                }
+                app.loadDashboard();
             } else {
                 showToast(data.error || 'Failed to create site', 'error');
             }
@@ -954,20 +924,14 @@ class SiteManager {
     }
     
     async deleteSite(name) {
-        if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) return;
-        
+        if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
         try {
-            const response = await fetch(`/api/sites/${encodeURIComponent(name)}`, {
-                method: 'DELETE'
-            });
-            
+            const response = await fetch(`/api/sites/${encodeURIComponent(name)}`, { method: 'DELETE' });
             const data = await response.json();
             if (data.success) {
                 showToast(`Site "${name}" deleted`, 'success');
                 this.loadSites();
-                if (window.app) {
-                    window.app.loadDashboard();
-                }
+                app.loadDashboard();
             } else {
                 showToast('Failed to delete site', 'error');
             }
@@ -980,14 +944,12 @@ class SiteManager {
     renderSites(sites) {
         this.sites = sites || [];
         const container = document.getElementById('sites-list');
-        
         if (!this.sites || this.sites.length === 0) {
             container.innerHTML = '<p class="text-sm text-slate-400 col-span-full">No sites hosted yet</p>';
             return;
         }
-        
         container.innerHTML = this.sites.map(site => `
-            <div class="glass-card p-4">
+            <div class="site-card p-4">
                 <div class="flex items-start justify-between">
                     <div class="flex items-center gap-3">
                         <i class="fas fa-folder text-2xl ${site.isGit ? 'text-indigo-400' : 'text-slate-500'}"></i>
@@ -1031,50 +993,143 @@ class SiteManager {
     }
 }
 
-// Toast notification
+// ============================================
+// DOMAIN MANAGER (নতুন)
+// ============================================
+class DomainManager {
+    constructor() {
+        this.domains = [];
+    }
+    
+    async addDomain(event) {
+        event.preventDefault();
+        const domain = document.getElementById('domain-name').value;
+        const site = document.getElementById('domain-site').value;
+        const tunnel = document.getElementById('domain-tunnel').value;
+        
+        if (!domain) {
+            showToast('Domain name is required', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/domains/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domain, site, tunnel })
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast(`Domain "${domain}" added successfully`, 'success');
+                app.loadDomains();
+                document.getElementById('domain-form').reset();
+            } else {
+                showToast(data.error || 'Failed to add domain', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to add domain:', error);
+            showToast('Failed to add domain', 'error');
+        }
+    }
+    
+    async removeDomain(id) {
+        if (!confirm('Remove this domain?')) return;
+        try {
+            const response = await fetch(`/api/domains/remove/${id}`, { method: 'DELETE' });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Domain removed', 'success');
+                app.loadDomains();
+            } else {
+                showToast('Failed to remove domain', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to remove domain:', error);
+            showToast('Failed to remove domain', 'error');
+        }
+    }
+}
+
+// ============================================
+// UPDATE FUNCTIONS
+// ============================================
+async function checkForUpdates() {
+    try {
+        const response = await fetch('/api/update/check');
+        const data = await response.json();
+        if (data.hasUpdate) {
+            document.getElementById('current-version').textContent = data.current;
+            document.getElementById('latest-version').textContent = data.latest;
+            document.getElementById('update-modal').classList.remove('hidden');
+        } else {
+            showToast('You have the latest version! ✅', 'success');
+        }
+    } catch (error) {
+        console.error('Failed to check updates:', error);
+    }
+}
+
+async function installUpdate() {
+    const progressBar = document.getElementById('update-progress-bar');
+    const statusText = document.getElementById('update-status');
+    const progressDiv = document.getElementById('update-progress');
+    progressDiv.classList.remove('hidden');
+    statusText.textContent = 'Starting update...';
+    progressBar.style.width = '10%';
+    
+    try {
+        const response = await fetch('/api/update/install', { method: 'POST' });
+        const data = await response.json();
+        const steps = ['Backing up...', 'Pulling changes...', 'Installing dependencies...', 'Restarting server...'];
+        let progress = 10;
+        for (const step of steps) {
+            statusText.textContent = step;
+            progress += 20;
+            progressBar.style.width = progress + '%';
+            await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+        progressBar.style.width = '100%';
+        statusText.textContent = '✅ Update complete! Server will restart...';
+        setTimeout(() => {
+            showToast('Update installed successfully! 🎉', 'success');
+            closeUpdateModal();
+            setTimeout(() => window.location.reload(), 2000);
+        }, 1000);
+    } catch (error) {
+        statusText.textContent = '❌ Update failed: ' + error.message;
+        progressBar.style.width = '0%';
+        showToast('Update failed!', 'error');
+    }
+}
+
+function closeUpdateModal() {
+    document.getElementById('update-modal').classList.add('hidden');
+}
+
+// ============================================
+// TOAST FUNCTION
+// ============================================
 function showToast(message, type = 'info') {
-    if (window.app) {
-        window.app.showToast(message, type);
+    if (app) {
+        app.showToast(message, type);
     } else {
         const container = document.getElementById('toast-container');
         if (!container) return;
-        
         const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
+        toast.className = `toast toast-${type}`;
         toast.textContent = message;
         container.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.classList.add('show');
-        }, 100);
-        
+        setTimeout(() => toast.classList.add('show'), 100);
         setTimeout(() => {
             toast.classList.remove('show');
-            setTimeout(() => {
-                toast.remove();
-            }, 300);
+            setTimeout(() => toast.remove(), 300);
         }, 3000);
     }
 }
 
-// Initialize application
-const app = new TermuxCPanel();
-window.app = app;
-
-// Initialize sub-modules
-const fileManager = new FileManager();
-window.fileManager = fileManager;
-
-const gitDeploy = new GitDeployer();
-window.gitDeploy = gitDeploy;
-
-const tunnelManager = new TunnelManager();
-window.tunnelManager = tunnelManager;
-
-const siteManager = new SiteManager();
-window.siteManager = siteManager;
-
-// Page switch function for onclick handlers
+// ============================================
+// PAGE FUNCTIONS
+// ============================================
 function switchPage(page) {
     app.switchPage(page);
 }
@@ -1087,5 +1142,28 @@ function refreshPage() {
     app.refreshPage();
 }
 
-// Export for global use
+// ============================================
+// INITIALIZATION
+// ============================================
+const app = new TermuxCPanel();
+window.app = app;
+
+const fileManager = new FileManager();
+window.fileManager = fileManager;
+
+const gitDeploy = new GitDeployer();
+window.gitDeploy = gitDeploy;
+
+const tunnelManager = new TunnelManager();
+window.tunnelManager = tunnelManager;
+
+const siteManager = new SiteManager();
+window.siteManager = siteManager;
+
+const domainManager = new DomainManager();
+window.domainManager = domainManager;
+
 window.showToast = showToast;
+window.checkForUpdates = checkForUpdates;
+window.installUpdate = installUpdate;
+window.closeUpdateModal = closeUpdateModal;
